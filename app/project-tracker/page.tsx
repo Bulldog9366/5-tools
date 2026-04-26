@@ -1,12 +1,10 @@
-"use client";
+ "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+const supabase = createClient();
 
 type SupplyItem = {
   id: string;
@@ -46,6 +44,32 @@ type FormState = {
   notes: string;
   supplies: SupplyItem[];
 };
+
+type SchedulerBridgeItem = {
+  id?: string;
+  title?: string;
+  property?: string;
+  status?: string;
+  priority?: string;
+  assignedto?: string;
+  duedate?: string;
+  budget?: number;
+  actualcost?: number;
+  notes?: string;
+  supplies?: SupplyItem[] | null;
+  createdAt?: string;
+  updatedAt?: string;
+
+  propertyAddress?: string;
+  trade?: string;
+  vendor?: string;
+  description?: string;
+  scheduledDate?: string;
+  dateScheduled?: string;
+  assignedTo?: string;
+};
+
+const SCHEDULER_BRIDGE_KEY = "project_tracker";
 
 const emptySupply = (): SupplyItem => ({
   id: crypto.randomUUID(),
@@ -112,12 +136,100 @@ function normalizeSupplies(value: unknown): SupplyItem[] {
   });
 }
 
+function mapSchedulerStatus(status?: string) {
+  switch ((status || "").toLowerCase()) {
+    case "completed":
+      return "Complete";
+    case "in progress":
+      return "In Progress";
+    case "on hold":
+      return "On Hold";
+    case "new":
+      return "Not Started";
+    case "scheduled":
+      return "Not Started";
+    case "canceled":
+      return "On Hold";
+    default:
+      return "Not Started";
+  }
+}
+
+function mapSchedulerPriority(priority?: string) {
+  const normalized = (priority || "").toLowerCase();
+  if (normalized === "low") return "Low";
+  if (normalized === "high") return "High";
+  if (normalized === "urgent") return "Urgent";
+  return "Medium";
+}
+
+function schedulerItemToProject(item: SchedulerBridgeItem): ProjectRow {
+  const title = (item.title || "").trim();
+  const property = (item.property || item.propertyAddress || "").trim();
+  const status = (item.status || "").trim();
+  const priority = (item.priority || "").trim();
+  const assignedto = (item.assignedto || item.assignedTo || "").trim();
+  const duedate = (item.duedate || item.scheduledDate || item.dateScheduled || "").trim();
+  const notes = (item.notes || "").trim();
+
+  if (title || property || notes) {
+    return {
+      id: crypto.randomUUID(),
+      title: title || property || "Imported Scheduler Project",
+      property,
+      status: mapSchedulerStatus(status),
+      priority: mapSchedulerPriority(priority),
+      assignedto,
+      duedate: duedate || null,
+      budget: Number(item.budget || 0),
+      actualcost: Number(item.actualcost || 0),
+      notes,
+      supplies: normalizeSupplies(item.supplies),
+      created_at: item.createdAt || new Date().toISOString(),
+      updated_at: item.updatedAt || new Date().toISOString(),
+    };
+  }
+
+  const trade = (item.trade || "").trim();
+  const vendor = (item.vendor || "").trim();
+  const description = (item.description || "").trim();
+
+  const titleParts = [trade, description].filter(Boolean);
+  const fallbackTitle =
+    titleParts.length > 0
+      ? titleParts.join(" - ").slice(0, 160)
+      : property || "Imported Scheduler Project";
+
+  const noteParts = [
+    trade ? `Trade: ${trade}` : "",
+    vendor ? `Vendor: ${vendor}` : "",
+    description ? `Requested Work: ${description}` : "",
+  ].filter(Boolean);
+
+  return {
+    id: crypto.randomUUID(),
+    title: fallbackTitle,
+    property,
+    status: mapSchedulerStatus(status),
+    priority: mapSchedulerPriority(priority),
+    assignedto,
+    duedate: duedate || null,
+    budget: 0,
+    actualcost: 0,
+    notes: noteParts.join("\n"),
+    supplies: [],
+    created_at: item.createdAt || new Date().toISOString(),
+    updated_at: item.updatedAt || new Date().toISOString(),
+  };
+}
+
 export default function ProjectTrackerPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState("");
 
   async function loadProjects() {
@@ -190,6 +302,94 @@ export default function ProjectTrackerPage() {
       actualcost: suppliesTotal(prev.supplies).toFixed(2),
     }));
     setMessage("Actual Cost updated from supplies total.");
+  }
+
+  async function importFromScheduler() {
+    setImporting(true);
+    setMessage("");
+
+    try {
+      const raw = localStorage.getItem(SCHEDULER_BRIDGE_KEY);
+
+      if (!raw) {
+        setMessage("No scheduler items found to import.");
+        setImporting(false);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as SchedulerBridgeItem[];
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setMessage("No scheduler items found to import.");
+        setImporting(false);
+        return;
+      }
+
+      const mapped = parsed.map(schedulerItemToProject);
+
+      const existingFingerprints = new Set(
+        projects.map((project) =>
+          [
+            (project.title || "").trim().toLowerCase(),
+            (project.property || "").trim().toLowerCase(),
+            (project.duedate || "").trim(),
+            (project.notes || "").trim().toLowerCase(),
+          ].join("|")
+        )
+      );
+
+      const newRows = mapped.filter((row) => {
+        const fingerprint = [
+          (row.title || "").trim().toLowerCase(),
+          (row.property || "").trim().toLowerCase(),
+          (row.duedate || "").trim(),
+          (row.notes || "").trim().toLowerCase(),
+        ].join("|");
+
+        return !existingFingerprints.has(fingerprint);
+      });
+
+      if (newRows.length === 0) {
+        localStorage.removeItem(SCHEDULER_BRIDGE_KEY);
+        setMessage("No new scheduler items to import.");
+        setImporting(false);
+        return;
+      }
+
+      const { error } = await supabase.from("project_tracker").insert(
+        newRows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          property: row.property,
+          status: row.status,
+          priority: row.priority,
+          assignedto: row.assignedto,
+          duedate: row.duedate,
+          budget: row.budget,
+          actualcost: row.actualcost,
+          notes: row.notes,
+          supplies: row.supplies,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }))
+      );
+
+      if (error) {
+        setMessage(`Import failed: ${error.message}`);
+        setImporting(false);
+        return;
+      }
+
+      localStorage.removeItem(SCHEDULER_BRIDGE_KEY);
+      localStorage.removeItem(SCHEDULER_BRIDGE_KEY);
+      await loadProjects();
+      setMessage(`Imported ${newRows.length} scheduler item${newRows.length === 1 ? "" : "s"}. Scheduler import queue cleared.`);
+    } catch (error) {
+      console.error(error);
+      setMessage("Import from scheduler failed.");
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function saveProject() {
@@ -350,11 +550,25 @@ export default function ProjectTrackerPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-slate-50"
+              >
+                Back to Dashboard
+              </Link>
+
               <button
                 onClick={loadProjects}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-slate-50"
               >
                 {loading ? "Reloading..." : "Reload Cloud"}
+              </button>
+
+              <button
+                onClick={importFromScheduler}
+                className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+              >
+                {importing ? "Importing..." : "Import from Scheduler"}
               </button>
 
               <button
@@ -772,7 +986,7 @@ export default function ProjectTrackerPage() {
                       ) : null}
 
                       {project.notes ? (
-                        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">
                           {project.notes}
                         </div>
                       ) : null}
