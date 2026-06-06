@@ -7,7 +7,7 @@ import { createClient } from "../../lib/supabase";
 const supabase = createClient();
 
 const EMPLOYEE_TABLE = "time_clock_employees";
-const TIME_TABLE = "time_entries";
+const TIME_TABLE = "operations_time_entries";
 const SCHEDULER_TABLE = "project_scheduler";
 
 type Employee = {
@@ -50,13 +50,11 @@ type CloudSchedulerRow = {
 
 type TimeEntry = {
   id: string;
-  project_id: string | null;
+  job_id: string;
+  job_type: "scheduler";
   employee_name: string;
+  property_name?: string | null;
   property_address: string;
-  city?: string | null;
-  state?: string | null;
-  zip?: string | null;
-  project_title?: string | null;
   work_description?: string | null;
   clock_in: string;
   clock_out?: string | null;
@@ -65,14 +63,17 @@ type TimeEntry = {
   notes?: string | null;
   status: "Active" | "Completed";
   created_at?: string;
+  // Legacy fallback only. New records use job_id.
+  project_id?: string | null;
+  project_title?: string | null;
 };
 
 type EditTimeEntry = {
   id: string;
   employee_name: string;
-  project_id: string | null;
+  job_id: string;
+  job_type: "scheduler";
   property_address: string;
-  project_title: string;
   work_description: string;
   clock_in: string;
   clock_out: string;
@@ -151,7 +152,7 @@ export default function TimeClockEmployeesPage() {
 
   const selectedProjectEntries = useMemo(() => {
     if (!selectedProjectId) return [];
-    return entries.filter((entry) => entry.project_id === selectedProjectId);
+    return entries.filter((entry) => entry.job_id === selectedProjectId || entry.project_id === selectedProjectId);
   }, [entries, selectedProjectId]);
 
   const selectedProjectHours = useMemo(() => {
@@ -309,24 +310,39 @@ export default function TimeClockEmployeesPage() {
     }
 
     if (!selectedProject) {
-      setStatusMessage("Select a scheduled project before clocking in.");
+      setStatusMessage("Select a scheduled project before clocking in. Time entries must be tied to a real scheduler job.");
+      return;
+    }
+
+    const { data: existingActive, error: existingError } = await supabase
+      .from(TIME_TABLE)
+      .select("*")
+      .eq("employee_name", employeeName.trim())
+      .eq("status", "Active")
+      .limit(1);
+
+    if (existingError) {
+      setStatusMessage(`Active clock-in check failed: ${existingError.message}`);
+      return;
+    }
+
+    if (existingActive && existingActive.length > 0) {
+      const current = existingActive[0] as TimeEntry;
+      setActiveEntry(current);
+      localStorage.setItem("5tools_active_time_entry", JSON.stringify(current));
+      setStatusMessage("This employee is already clocked into a job. Clock them out before starting another job.");
       return;
     }
 
     const now = new Date().toISOString();
 
     const payload = {
-      project_id: selectedProject.id,
+      job_id: selectedProject.id,
+      job_type: "scheduler",
       employee_name: employeeName.trim(),
+      property_name: selectedProject.propertyAddress || "",
       property_address: selectedProject.propertyAddress || "",
-      city: "",
-      state: "WA",
-      zip: "",
-      project_title:
-        selectedProject.trade && selectedProject.propertyAddress
-          ? `${selectedProject.trade} - ${selectedProject.propertyAddress}`
-          : selectedProject.propertyAddress || selectedProject.trade || "Scheduled Project",
-      work_description: selectedProject.description || "",
+      work_description: selectedProject.description || selectedProject.trade || "",
       clock_in: now,
       clock_out: null,
       break_minutes: Number(breakMinutes) || 0,
@@ -350,7 +366,7 @@ export default function TimeClockEmployeesPage() {
 
     setActiveEntry(entry);
     localStorage.setItem("5tools_active_time_entry", JSON.stringify(entry));
-    setStatusMessage("Clocked in and linked to scheduler project.");
+    setStatusMessage("Clocked in and auto-created a time entry from the selected scheduler job.");
     await loadEntries();
   }
 
@@ -360,8 +376,23 @@ export default function TimeClockEmployeesPage() {
       return;
     }
 
+    const { data: lockedEntry, error: lockError } = await supabase
+      .from(TIME_TABLE)
+      .select("*")
+      .eq("id", activeEntry.id)
+      .eq("job_id", activeEntry.job_id)
+      .eq("employee_name", activeEntry.employee_name)
+      .eq("status", "Active")
+      .single();
+
+    if (lockError || !lockedEntry) {
+      setStatusMessage("Clock out blocked. No matching active job was found for this employee.");
+      return;
+    }
+
+    const entryToClose = lockedEntry as TimeEntry;
     const now = new Date().toISOString();
-    const total = calcHours(activeEntry.clock_in, now, Number(breakMinutes) || 0);
+    const total = calcHours(entryToClose.clock_in, now, Number(breakMinutes) || 0);
 
     const { error } = await supabase
       .from(TIME_TABLE)
@@ -372,7 +403,10 @@ export default function TimeClockEmployeesPage() {
         notes,
         status: "Completed",
       })
-      .eq("id", activeEntry.id);
+      .eq("id", entryToClose.id)
+      .eq("job_id", entryToClose.job_id)
+      .eq("employee_name", entryToClose.employee_name)
+      .eq("status", "Active");
 
     if (error) {
       setStatusMessage(`Clock out failed: ${error.message}`);
@@ -381,7 +415,7 @@ export default function TimeClockEmployeesPage() {
 
     setActiveEntry(null);
     localStorage.removeItem("5tools_active_time_entry");
-    setStatusMessage(`Clocked out. Total hours: ${formatHours(total)}.`);
+    setStatusMessage(`Clocked out of the same scheduler job. Total hours: ${formatHours(total)}.`);
     await loadEntries();
   }
 
@@ -389,9 +423,9 @@ export default function TimeClockEmployeesPage() {
     setEditingEntry({
       id: entry.id,
       employee_name: entry.employee_name || "",
-      project_id: entry.project_id || null,
+      job_id: entry.job_id || entry.project_id || "",
+      job_type: "scheduler",
       property_address: entry.property_address || "",
-      project_title: entry.project_title || "",
       work_description: entry.work_description || "",
       clock_in: toDateTimeLocal(entry.clock_in),
       clock_out: toDateTimeLocal(entry.clock_out),
@@ -434,9 +468,10 @@ export default function TimeClockEmployeesPage() {
       .from(TIME_TABLE)
       .update({
         employee_name: editingEntry.employee_name.trim(),
-        project_id: editingEntry.project_id,
+        job_id: editingEntry.job_id,
+        job_type: "scheduler",
+        property_name: editingEntry.property_address.trim(),
         property_address: editingEntry.property_address.trim(),
-        project_title: editingEntry.project_title.trim(),
         work_description: editingEntry.work_description,
         clock_in: clockInIso,
         clock_out: clockOutIso,
@@ -497,10 +532,10 @@ export default function TimeClockEmployeesPage() {
     await loadEntries();
   }
 
-  function projectLabel(projectId?: string | null) {
-    if (!projectId) return "No linked project";
-    const project = projects.find((item) => item.id === projectId);
-    if (!project) return projectId;
+  function projectLabel(jobId?: string | null) {
+    if (!jobId) return "No linked scheduler job";
+    const project = projects.find((item) => item.id === jobId);
+    if (!project) return jobId;
     return `${project.propertyAddress || "No address"}${project.trade ? ` - ${project.trade}` : ""}`;
   }
 
@@ -724,6 +759,7 @@ export default function TimeClockEmployeesPage() {
                     <div><span className="font-semibold">Employee:</span> {activeEntry.employee_name}</div>
                     <div><span className="font-semibold">Clock In:</span> {formatDateTime(activeEntry.clock_in)}</div>
                     <div className="sm:col-span-2"><span className="font-semibold">Property:</span> {activeEntry.property_address}</div>
+                    <div className="sm:col-span-2"><span className="font-semibold">Scheduler Job:</span> {projectLabel(activeEntry.job_id || activeEntry.project_id)}</div>
                   </div>
                 </div>
               ) : (
@@ -762,24 +798,18 @@ export default function TimeClockEmployeesPage() {
                   <label className="block">
                     <span className="text-sm font-semibold">Linked Scheduler Project</span>
                     <select
-                      value={editingEntry.project_id || ""}
+                      value={editingEntry.job_id || ""}
                       onChange={(e) => {
                         const project = projects.find((item) => item.id === e.target.value);
-                        updateEditingEntry("project_id", e.target.value || null);
+                        updateEditingEntry("job_id", e.target.value || "");
                         if (project) {
                           updateEditingEntry("property_address", project.propertyAddress || "");
-                          updateEditingEntry(
-                            "project_title",
-                            project.trade && project.propertyAddress
-                              ? `${project.trade} - ${project.propertyAddress}`
-                              : project.propertyAddress || project.trade || "Scheduled Project"
-                          );
                           updateEditingEntry("work_description", project.description || "");
                         }
                       }}
                       className="mt-1 w-full rounded-xl border border-[#d8d2c4] bg-[#f8fafc] px-4 py-3 text-sm outline-none focus:border-[#c9a227]"
                     >
-                      <option value="">No linked project</option>
+                      <option value="">Select scheduler job...</option>
                       {projects.map((project) => (
                         <option key={`${project.boardId}-${project.id}`} value={project.id}>
                           {project.propertyAddress || "No address"}{project.trade ? ` - ${project.trade}` : ""}
@@ -793,15 +823,6 @@ export default function TimeClockEmployeesPage() {
                     <input
                       value={editingEntry.property_address}
                       onChange={(e) => updateEditingEntry("property_address", e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#d8d2c4] bg-[#f8fafc] px-4 py-3 text-sm outline-none focus:border-[#c9a227]"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="text-sm font-semibold">Project Title</span>
-                    <input
-                      value={editingEntry.project_title}
-                      onChange={(e) => updateEditingEntry("project_title", e.target.value)}
                       className="mt-1 w-full rounded-xl border border-[#d8d2c4] bg-[#f8fafc] px-4 py-3 text-sm outline-none focus:border-[#c9a227]"
                     />
                   </label>
@@ -906,7 +927,7 @@ export default function TimeClockEmployeesPage() {
                         <div>
                           <div className="font-bold">{entry.employee_name}</div>
                           <div className="text-sm text-[#475569]">{entry.property_address}</div>
-                          <div className="mt-1 text-xs text-[#64748b]">{projectLabel(entry.project_id)}</div>
+                          <div className="mt-1 text-xs text-[#64748b]">{projectLabel(entry.job_id || entry.project_id)}</div>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -923,7 +944,7 @@ export default function TimeClockEmployeesPage() {
                         <div><span className="font-bold">Clock In:</span> {formatDateTime(entry.clock_in)}</div>
                         <div><span className="font-bold">Clock Out:</span> {entry.clock_out ? formatDateTime(entry.clock_out) : "Active"}</div>
                         <div><span className="font-bold">Break:</span> {entry.break_minutes || 0} min</div>
-                        <div><span className="font-bold">Project ID:</span> {entry.project_id || "-"}</div>
+                        <div><span className="font-bold">Scheduler Job:</span> {entry.job_id || entry.project_id || "-"}</div>
                       </div>
 
                       {entry.notes ? (

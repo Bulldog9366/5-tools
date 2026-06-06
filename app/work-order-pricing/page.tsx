@@ -1,1760 +1,1575 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
 
-type UploadedPdf = {
-  file: File | null;
-  fileName: string;
-  uploadedAt?: string;
+type Category =
+  | "Appliance"
+  | "Plumbing"
+  | "Electrical"
+  | "HVAC"
+  | "Drywall / Paint"
+  | "Flooring"
+  | "Doors / Locks"
+  | "General Handyman"
+  | "Cleaning / Trash-Out"
+  | "Exterior / Yard"
+  | "Safety / Habitability";
+
+type PriceType =
+  | "Labor"
+  | "Material"
+  | "Package"
+  | "Service Call"
+  | "Disposal"
+  | "Trip Fee"
+  | "Other";
+
+type NotebookGroup = {
+  id: string;
+  category: Category;
+  name: string;
+  notes: string;
 };
 
-type ExtractedWorkOrder = {
+type NotebookLine = {
+  id: string;
+  groupId: string;
+  category: Category;
+  description: string;
+  type: PriceType;
+  price: string;
+  taxable: boolean;
+  notes: string;
+};
+
+type BuilderLine = {
+  id: string;
+  sourceLineId?: string;
+  description: string;
+  type: PriceType;
+  qty: string;
+  unitPrice: string;
+  taxable: boolean;
+};
+
+type WorkOrderInfo = {
+  sourceId?: string;
   workOrderNumber: string;
   status: string;
   createdOn: string;
-  estimateRequestedOn: string;
-  estimateAmount: string;
-  estimatedOn: string;
-  scheduledOn: string;
-  completedOn: string;
-
+  maintenanceLimit: string;
   propertyAddress: string;
+  unit: string;
   city: string;
   state: string;
   zip: string;
-  unit: string;
-
-  tenantNames: string;
-  tenantPhones: string;
-  tenantEmails: string;
-  tenantAvailability: string;
-
-  permissionToEnter: string;
-  accessNotes: string;
-  pets: string;
-
-  maintenanceLimit: string;
-
   issueCategory: string;
-  issueSubcategory: string;
-  applianceType: string;
-  brand: string;
-  model: string;
-
   problemDescription: string;
-  issueDetails: string;
-  safetyConcern: string;
-
-  vendorAssigned: string;
-  requestedAction: string;
+  accessNotes: string;
 };
 
-type JobClassification = {
-  tradeCategory: string;
-  jobType: string;
-  severity: string;
-  occupancyStatus: string;
-  accessComplexity: string;
-  recommendedPath: string;
-  confidence: number;
-};
-
-type PricingBreakdown = {
-  pricingRuleUsed: string;
-  serviceCall: string;
-  labor: string;
-  materials: string;
-  disposal: string;
-  other: string;
-  taxRate: string;
-  taxAmount: string;
-  total: string;
-  pricingNote: string;
-  approvalNeeded: boolean;
-  manualReviewRequired: boolean;
-};
-
-type GeneratedOutputs = {
-  vendorInstructions: string;
-  ownerUpdate: string;
-  internalSummary: string;
-};
-
-type InternalReview = {
-  assignedTo: string;
-  status: string;
-  followUpDate: string;
-  internalNotes: string;
+type PushedWorkOrder = Partial<WorkOrderInfo> & {
+  id?: string;
+  sourceId?: string;
+  workOrderNumber?: string;
+  propertyAddress?: string;
+  address?: string;
+  fullAddress?: string;
+  property?: string;
+  unit?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  status?: string;
+  category?: string;
+  issueCategory?: string;
+  description?: string;
+  problemDescription?: string;
+  issueDescription?: string;
+  accessNotes?: string;
+  maintenanceLimit?: string | number;
+  createdAt?: string;
+  createdOn?: string;
 };
 
 type SavedPricingRecord = {
   id: string;
-  created_at: string;
-  file_name: string | null;
-  work_order_number: string | null;
-  property_address: string | null;
-  issue_category: string | null;
-  job_type: string | null;
-  total_amount: number | null;
-  record_status: string | null;
+  savedAt: string;
+  workOrder: WorkOrderInfo;
+  builderLines: BuilderLine[];
+  taxRate: string;
+  taxName?: string;
 };
 
-type PricingRule = {
-  key: string;
-  label: string;
-  tradeCategory: string;
-  jobType: string;
-  keywords: string[];
-  serviceCallMin: number;
-  serviceCallMax: number;
-  laborMin: number;
-  laborMax: number;
-  materialsMin: number;
-  materialsMax: number;
-  disposalMin: number;
-  disposalMax: number;
-  note: string;
+type SharedNotebookRecord = {
+  id: string;
+  groups_json: NotebookGroup[];
+  lines_json: NotebookLine[];
+  updated_at?: string;
 };
 
-const DEFAULT_EXTRACTED: ExtractedWorkOrder = {
+const CATEGORIES: Category[] = [
+  "Appliance",
+  "Plumbing",
+  "Electrical",
+  "HVAC",
+  "Drywall / Paint",
+  "Flooring",
+  "Doors / Locks",
+  "General Handyman",
+  "Cleaning / Trash-Out",
+  "Exterior / Yard",
+  "Safety / Habitability",
+];
+
+const PRICE_TYPES: PriceType[] = [
+  "Labor",
+  "Material",
+  "Package",
+  "Service Call",
+  "Disposal",
+  "Trip Fee",
+  "Other",
+];
+
+const TAX_RATE_OPTIONS = [
+  { name: "Auburn", rate: "10.20" },
+  { name: "Bremerton", rate: "9.20" },
+  { name: "Des Moines", rate: "10.10" },
+  { name: "Federal Way", rate: "10.30" },
+  { name: "Fife", rate: "10.00" },
+  { name: "Gig Harbor", rate: "8.10" },
+  { name: "Graham", rate: "9.40" },
+  { name: "Issaquah", rate: "10.50" },
+  { name: "Kent", rate: "10.10" },
+  { name: "Lakebay", rate: "8.10" },
+  { name: "Lakewood", rate: "10.00" },
+  { name: "Lynwood", rate: "10.60" },
+  { name: "Marysville", rate: "9.40" },
+  { name: "Parkland", rate: "9.40" },
+  { name: "Port Orchard", rate: "9.30" },
+  { name: "Puyallup", rate: "10.10" },
+  { name: "Renton", rate: "10.10" },
+  { name: "Seattle", rate: "10.25" },
+  { name: "Silverdale", rate: "9.20" },
+  { name: "Spanaway", rate: "10.00" },
+  { name: "Steilacoom", rate: "10.10" },
+  { name: "Tacoma", rate: "10.30" },
+  { name: "Tukwila", rate: "10.10" },
+  { name: "University Place", rate: "10.00" },
+  { name: "Vashon Island", rate: "8.70" },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+
+const NOTEBOOK_GROUPS_KEY = "five_tools_pricing_notebook_groups_v2";
+const NOTEBOOK_LINES_KEY = "five_tools_pricing_notebook_lines_v2";
+const BUILDER_STORAGE_KEY = "five_tools_work_order_pricing_builder_v2";
+const SAVED_RECORDS_KEY = "five_tools_work_order_pricing_saved_records_v1";
+const WORK_ORDER_PRICING_QUEUE_KEY = "five_tools_work_order_pricing_queue_v1";
+const WORK_ORDER_PRICING_RETURN_QUEUE_KEY = "five_tools_work_order_pricing_return_queue_v1";
+const SERVICE_TICKET_PRICING_RETURN_QUEUE_KEY = "five_tools_service_ticket_pricing_return_queue_v1";
+const SERVICE_TICKET_PRICING_DRAFT_KEY = "five_tools_service_ticket_pricing_return_draft_v1";
+const SHARED_NOTEBOOK_ID = "shared";
+const SHARED_NOTEBOOK_TABLE = "work_order_pricing_notebook";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  "";
+
+const DEFAULT_WORK_ORDER: WorkOrderInfo = {
   workOrderNumber: "",
-  status: "",
-  createdOn: "",
-  estimateRequestedOn: "",
-  estimateAmount: "",
-  estimatedOn: "",
-  scheduledOn: "",
-  completedOn: "",
-
+  status: "New",
+  createdOn: new Date().toISOString().slice(0, 10),
+  maintenanceLimit: "",
   propertyAddress: "",
+  unit: "",
   city: "",
   state: "WA",
   zip: "",
-  unit: "",
-
-  tenantNames: "",
-  tenantPhones: "",
-  tenantEmails: "",
-  tenantAvailability: "",
-
-  permissionToEnter: "",
-  accessNotes: "",
-  pets: "",
-
-  maintenanceLimit: "",
-
   issueCategory: "",
-  issueSubcategory: "",
-  applianceType: "",
-  brand: "",
-  model: "",
-
   problemDescription: "",
-  issueDetails: "",
-  safetyConcern: "",
-
-  vendorAssigned: "Appliance Co",
-  requestedAction: "Inspect issue and provide repair recommendation.",
+  accessNotes: "",
 };
 
-const DEFAULT_CLASSIFICATION: JobClassification = {
-  tradeCategory: "",
-  jobType: "",
-  severity: "Low",
-  occupancyStatus: "Occupied",
-  accessComplexity: "Easy",
-  recommendedPath: "Diagnose only",
-  confidence: 0,
-};
-
-const DEFAULT_PRICING: PricingBreakdown = {
-  pricingRuleUsed: "",
-  serviceCall: "",
-  labor: "",
-  materials: "",
-  disposal: "",
-  other: "",
-  taxRate: "10.5",
-  taxAmount: "",
-  total: "",
-  pricingNote: "",
-  approvalNeeded: false,
-  manualReviewRequired: false,
-};
-
-const DEFAULT_OUTPUTS: GeneratedOutputs = {
-  vendorInstructions: "",
-  ownerUpdate: "",
-  internalSummary: "",
-};
-
-const DEFAULT_INTERNAL_REVIEW: InternalReview = {
-  assignedTo: "",
-  status: "New",
-  followUpDate: "",
-  internalNotes: "",
-};
-
-const PRICING_RULES: PricingRule[] = [
+const STARTER_GROUPS: NotebookGroup[] = [
   {
-    key: "appliance_diagnostic",
-    label: "Appliance Diagnostic",
-    tradeCategory: "Appliance",
-    jobType: "Diagnostic",
-    keywords: ["appliance", "diagnostic", "not working", "issue", "problem"],
-    serviceCallMin: 125,
-    serviceCallMax: 185,
-    laborMin: 0,
-    laborMax: 150,
-    materialsMin: 0,
-    materialsMax: 75,
-    disposalMin: 0,
-    disposalMax: 0,
-    note: "Diagnostic only unless additional repair is approved.",
+    id: "grp-appliance-dishwasher",
+    category: "Appliance",
+    name: "Dishwasher",
+    notes: "Dishwasher repair, replacement, install kit, and disposal charges.",
   },
   {
-    key: "dishwasher_common_repair",
-    label: "Dishwasher Common Repair",
-    tradeCategory: "Appliance",
-    jobType: "Dishwasher Repair",
-    keywords: ["dishwasher", "cleaning", "cycle", "not cleaning", "drain", "spray arm"],
-    serviceCallMin: 125,
-    serviceCallMax: 185,
-    laborMin: 175,
-    laborMax: 350,
-    materialsMin: 25,
-    materialsMax: 180,
-    disposalMin: 0,
-    disposalMax: 0,
-    note: "Common dishwasher repair range based on standard service conditions.",
+    id: "grp-appliance-stove",
+    category: "Appliance",
+    name: "Stove / Range",
+    notes:
+      "Stove, range, burner, oven, and gas/electric cooking appliance charges.",
   },
   {
-    key: "dryer_common_repair",
-    label: "Dryer Common Repair",
-    tradeCategory: "Appliance",
-    jobType: "Dryer Repair",
-    keywords: ["dryer", "won't turn off", "will not turn off", "heating", "not shutting off"],
-    serviceCallMin: 125,
-    serviceCallMax: 185,
-    laborMin: 180,
-    laborMax: 425,
-    materialsMin: 40,
-    materialsMax: 220,
-    disposalMin: 0,
-    disposalMax: 0,
-    note: "Common dryer repair range. Control and sensor issues may require approval before parts are ordered.",
+    id: "grp-appliance-range-hood",
+    category: "Appliance",
+    name: "Range Hood",
+    notes: "Range hood repair/replacement and vent connection charges.",
   },
   {
-    key: "washer_common_repair",
-    label: "Washer Common Repair",
-    tradeCategory: "Appliance",
-    jobType: "Washer Repair",
-    keywords: ["washer", "washing machine", "spin", "drain", "leak"],
-    serviceCallMin: 125,
-    serviceCallMax: 185,
-    laborMin: 175,
-    laborMax: 400,
-    materialsMin: 25,
-    materialsMax: 220,
-    disposalMin: 0,
-    disposalMax: 0,
-    note: "Common washer repair range.",
+    id: "grp-electrical-outlet",
+    category: "Electrical",
+    name: "Outlet / Switch",
+    notes: "Standard outlet, GFCI, switch, plate, and replacement labor.",
   },
   {
-    key: "range_common_repair",
-    label: "Range / Oven Repair",
-    tradeCategory: "Appliance",
-    jobType: "Range Repair",
-    keywords: ["range", "oven", "stove", "burner", "broil", "bake"],
-    serviceCallMin: 125,
-    serviceCallMax: 185,
-    laborMin: 185,
-    laborMax: 425,
-    materialsMin: 30,
-    materialsMax: 250,
-    disposalMin: 0,
-    disposalMax: 0,
-    note: "Common cooking appliance repair range.",
+    id: "grp-electrical-light",
+    category: "Electrical",
+    name: "Light Fixture",
+    notes: "Fixture replacement and basic troubleshooting.",
+  },
+  {
+    id: "grp-plumbing-toilet",
+    category: "Plumbing",
+    name: "Toilet",
+    notes:
+      "Toilet repair, reset, replacement, supply line, wax ring, and shutoff work.",
+  },
+  {
+    id: "grp-plumbing-faucet",
+    category: "Plumbing",
+    name: "Faucet / Sink",
+    notes: "Faucet replacement, leak repair, supply lines, and drain work.",
   },
 ];
 
-function sectionCard(title: string, subtitle?: string) {
-  return (
-    <div className="mb-4">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
-    </div>
-  );
+const STARTER_LINES: NotebookLine[] = [
+  {
+    id: "line-dw-disposal",
+    groupId: "grp-appliance-dishwasher",
+    category: "Appliance",
+    description: "Disposal of old unit",
+    type: "Disposal",
+    price: "0.00",
+    taxable: true,
+    notes: "Haul away / disposal charge.",
+  },
+  {
+    id: "line-dw-install",
+    groupId: "grp-appliance-dishwasher",
+    category: "Appliance",
+    description: "Dishwasher installation labor",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Remove and install new dishwasher.",
+  },
+  {
+    id: "line-dw-kit",
+    groupId: "grp-appliance-dishwasher",
+    category: "Appliance",
+    description: "Dishwasher install kit",
+    type: "Material",
+    price: "0.00",
+    taxable: true,
+    notes: "Hose, clamps, fittings, etc.",
+  },
+  {
+    id: "line-dw-unit",
+    groupId: "grp-appliance-dishwasher",
+    category: "Appliance",
+    description: "Dishwasher unit",
+    type: "Material",
+    price: "0.00",
+    taxable: true,
+    notes: "Standard white or approved equivalent.",
+  },
+  {
+    id: "line-range-diagnostic",
+    groupId: "grp-appliance-stove",
+    category: "Appliance",
+    description: "Range / stove diagnostic",
+    type: "Service Call",
+    price: "0.00",
+    taxable: true,
+    notes: "Initial diagnostic charge.",
+  },
+  {
+    id: "line-range-install",
+    groupId: "grp-appliance-stove",
+    category: "Appliance",
+    description: "Stove / range installation labor",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Install replacement unit.",
+  },
+  {
+    id: "line-hood-install",
+    groupId: "grp-appliance-range-hood",
+    category: "Appliance",
+    description: "Range hood installation labor",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Install replacement range hood.",
+  },
+  {
+    id: "line-outlet-material",
+    groupId: "grp-electrical-outlet",
+    category: "Electrical",
+    description: "Standard outlet",
+    type: "Material",
+    price: "0.00",
+    taxable: true,
+    notes: "Outlet device only.",
+  },
+  {
+    id: "line-outlet-replace",
+    groupId: "grp-electrical-outlet",
+    category: "Electrical",
+    description: "Replace standard outlet",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Labor to replace existing outlet.",
+  },
+  {
+    id: "line-gfci-material",
+    groupId: "grp-electrical-outlet",
+    category: "Electrical",
+    description: "GFCI outlet",
+    type: "Material",
+    price: "0.00",
+    taxable: true,
+    notes: "GFCI device only.",
+  },
+  {
+    id: "line-light-replace",
+    groupId: "grp-electrical-light",
+    category: "Electrical",
+    description: "Replace light fixture",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Standard fixture swap.",
+  },
+  {
+    id: "line-toilet-trip-fee",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Trip Fee",
+    type: "Trip Fee",
+    price: "45.00",
+    taxable: true,
+    notes: "Trip Charge",
+  },
+  {
+    id: "line-toilet-supply-line",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Water Supply Line",
+    type: "Material",
+    price: "14.50",
+    taxable: true,
+    notes: "",
+  },
+  {
+    id: "line-toilet-standard-toilet",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Standard Toilet",
+    type: "Material",
+    price: "200.00",
+    taxable: true,
+    notes: "Standard toilet.",
+  },
+  {
+    id: "line-toilet-disposal",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Disposal",
+    type: "Disposal",
+    price: "90.00",
+    taxable: true,
+    notes: "Remove and dispose of old toilet.",
+  },
+  {
+    id: "line-toilet-replace",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Toilet replacement labor",
+    type: "Labor",
+    price: "310.00",
+    taxable: true,
+    notes: "Remove and replace toilet.",
+  },
+  {
+    id: "line-toilet-wax-ring",
+    groupId: "grp-plumbing-toilet",
+    category: "Plumbing",
+    description: "Waxless ring",
+    type: "Material",
+    price: "28.00",
+    taxable: true,
+    notes: "Common toilet replacement materials.",
+  },
+  {
+    id: "line-faucet-replace",
+    groupId: "grp-plumbing-faucet",
+    category: "Plumbing",
+    description: "Faucet replacement labor",
+    type: "Labor",
+    price: "0.00",
+    taxable: true,
+    notes: "Standard faucet replacement.",
+  },
+];
+
+function uid(prefix = "id") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function safeString(value: unknown) {
-  return typeof value === "string" ? value : "";
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function parseCurrencyInput(value: string) {
-  const cleaned = value.replace(/[^0-9.-]/g, "");
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
+function asNumber(value: string | number | undefined | null) {
+  const raw = String(value ?? "").replace(/[^0-9.-]/g, "");
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function formatCurrency(value: number) {
-  return value.toLocaleString("en-US", {
+function money(value: string | number | undefined | null) {
+  return asNumber(value).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
   });
 }
 
-function midpoint(min: number, max: number) {
-  return (min + max) / 2;
+
+function normalizeTaxName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/tax/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
-function extractFirstMatch(text: string, regex: RegExp) {
-  const match = text.match(regex);
-  return match?.[1]?.trim() ?? "";
-}
+function findTaxRateByCity(city: string) {
+  const normalizedCity = normalizeTaxName(city);
+  if (!normalizedCity) return null;
 
-function normalizeWhitespace(text: string) {
-  return text.replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function formatDateForInput(value: string) {
-  if (!value) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-
-  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return value;
-
-  const [, mm, dd, yyyy] = match;
-  return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
-}
-
-function inferIssueCategory(description: string) {
-  const lower = description.toLowerCase();
-  if (lower.includes("dishwasher")) return "Dishwasher";
-  if (lower.includes("dryer")) return "Dryer";
-  if (lower.includes("washer")) return "Washer";
-  if (lower.includes("range") || lower.includes("oven") || lower.includes("stove")) return "Range/Oven";
-  if (lower.includes("refrigerator") || lower.includes("fridge")) return "Refrigerator";
-  if (lower.includes("microwave")) return "Microwave";
-  if (lower.includes("garbage disposal") || lower.includes("disposal")) return "Garbage Disposal";
-  if (lower.includes("toilet")) return "Toilet";
-  if (lower.includes("sink")) return "Sink";
-  if (lower.includes("water heater")) return "Water Heater";
-  return "General Maintenance";
-}
-
-function extractApplianceInfo(description: string) {
-  const lower = description.toLowerCase();
-  let applianceType = "";
-  if (lower.includes("dishwasher")) applianceType = "Dishwasher";
-  else if (lower.includes("dryer")) applianceType = "Dryer";
-  else if (lower.includes("washer")) applianceType = "Washer";
-  else if (lower.includes("range") || lower.includes("oven") || lower.includes("stove")) applianceType = "Range/Oven";
-  else if (lower.includes("refrigerator") || lower.includes("fridge")) applianceType = "Refrigerator";
-
-  const modelMatch =
-    description.match(/(?:make\/model|model(?: number)?)[:\s-]*([A-Z0-9\-]+)/i) ||
-    description.match(/\b([A-Z]{2,}[A-Z0-9\-]{4,})\b/);
-
-  const brandMatch =
-    description.match(/\b(Samsung|Whirlpool|GE|LG|Frigidaire|Maytag|Kenmore|Bosch|KitchenAid|Amana)\b/i) || null;
-
-  return {
-    applianceType,
-    brand: brandMatch?.[1] ?? "",
-    model: modelMatch?.[1] ?? "",
-  };
-}
-
-function classifyWorkOrder(data: ExtractedWorkOrder): JobClassification {
-  const fullText = `${data.issueCategory} ${data.problemDescription} ${data.issueDetails}`.toLowerCase();
-
-  let tradeCategory = "General Maintenance";
-  let jobType = "Manual Review";
-  let confidence = 0.55;
-  let recommendedPath = "Diagnose only";
-  let severity = "Low";
-
-  if (
-    fullText.includes("dishwasher") ||
-    fullText.includes("dryer") ||
-    fullText.includes("washer") ||
-    fullText.includes("appliance") ||
-    fullText.includes("oven") ||
-    fullText.includes("stove")
-  ) {
-    tradeCategory = "Appliance";
-    confidence = 0.8;
-  }
-
-  if (fullText.includes("dishwasher")) {
-    jobType = "Dishwasher Repair";
-    confidence = 0.9;
-  } else if (fullText.includes("dryer")) {
-    jobType = "Dryer Repair";
-    confidence = 0.9;
-  } else if (fullText.includes("washer")) {
-    jobType = "Washer Repair";
-    confidence = 0.85;
-  } else if (fullText.includes("range") || fullText.includes("oven") || fullText.includes("stove")) {
-    jobType = "Range Repair";
-    confidence = 0.85;
-  } else if (tradeCategory === "Appliance") {
-    jobType = "Diagnostic";
-    confidence = 0.75;
-  }
-
-  if (fullText.includes("smoking") || fullText.includes("sparking") || fullText.includes("fire hazard")) {
-    severity = "High";
-    recommendedPath = "Manual review";
-    confidence = Math.max(confidence, 0.9);
-  } else if (fullText.includes("not working") || fullText.includes("will not") || fullText.includes("won't")) {
-    severity = "Medium";
-  }
-
-  const occupancyStatus = data.tenantNames ? "Occupied" : "Vacant";
-
-  let accessComplexity = "Easy";
-  const accessText = `${data.permissionToEnter} ${data.accessNotes}`.toLowerCase();
-  if (accessText.includes("gate") || accessText.includes("call upon arrival") || accessText.includes("tenant requests")) {
-    accessComplexity = "Moderate";
-  }
-
-  return {
-    tradeCategory,
-    jobType,
-    severity,
-    occupancyStatus,
-    accessComplexity,
-    recommendedPath,
-    confidence,
-  };
-}
-
-function findPricingRule(data: ExtractedWorkOrder, classification: JobClassification) {
-  const haystack =
-    `${classification.tradeCategory} ${classification.jobType} ${data.issueCategory} ${data.problemDescription} ${data.issueDetails}`.toLowerCase();
-
-  let bestRule: PricingRule | null = null;
-  let bestScore = -1;
-
-  for (const rule of PRICING_RULES) {
-    let score = 0;
-    if (rule.tradeCategory.toLowerCase() === classification.tradeCategory.toLowerCase()) score += 3;
-    if (rule.jobType.toLowerCase() === classification.jobType.toLowerCase()) score += 4;
-    for (const keyword of rule.keywords) {
-      if (haystack.includes(keyword.toLowerCase())) score += 1;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestRule = rule;
-    }
-  }
-
-  return bestRule;
-}
-
-function calculatePricing(
-  rule: PricingRule | null,
-  data: ExtractedWorkOrder,
-  classification: JobClassification
-): PricingBreakdown {
-  if (!rule) {
-    return {
-      pricingRuleUsed: "Manual Review",
-      serviceCall: "0.00",
-      labor: "0.00",
-      materials: "0.00",
-      disposal: "0.00",
-      other: "0.00",
-      taxRate: "10.5",
-      taxAmount: "0.00",
-      total: "0.00",
-      pricingNote: "No matching pricing rule found. Review manually.",
-      approvalNeeded: false,
-      manualReviewRequired: true,
-    };
-  }
-
-  let serviceCall = midpoint(rule.serviceCallMin, rule.serviceCallMax);
-  let labor = midpoint(rule.laborMin, rule.laborMax);
-  let materials = midpoint(rule.materialsMin, rule.materialsMax);
-  let disposal = midpoint(rule.disposalMin, rule.disposalMax);
-  const other = 0;
-
-  const limit = parseCurrencyInput(data.maintenanceLimit);
-
-  let pricingNote = rule.note;
-  if (classification.accessComplexity === "Moderate") {
-    labor += 45;
-    pricingNote += " Access coordination may add labor time.";
-  }
-
-  if (classification.severity === "High") {
-    labor += 75;
-    pricingNote += " Safety concern noted; manual review strongly recommended.";
-  }
-
-  if (classification.recommendedPath === "Diagnose only") {
-    labor = Math.min(labor, 125);
-    materials = 0;
-    pricingNote += " Initial pricing assumes diagnostic-first workflow.";
-  }
-
-  const subtotal = serviceCall + labor + materials + disposal + other;
-  const taxRate = 10.5;
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
-  const approvalNeeded = limit > 0 ? total > limit : false;
-
-  return {
-    pricingRuleUsed: rule.label,
-    serviceCall: serviceCall.toFixed(2),
-    labor: labor.toFixed(2),
-    materials: materials.toFixed(2),
-    disposal: disposal.toFixed(2),
-    other: other.toFixed(2),
-    taxRate: taxRate.toFixed(2),
-    taxAmount: taxAmount.toFixed(2),
-    total: total.toFixed(2),
-    pricingNote: approvalNeeded
-      ? `${pricingNote} Total exceeds maintenance limit and should be reviewed for approval.`
-      : pricingNote,
-    approvalNeeded,
-    manualReviewRequired: classification.severity === "High",
-  };
-}
-
-function buildVendorInstructions(
-  data: ExtractedWorkOrder,
-  classification: JobClassification,
-  pricing: PricingBreakdown
-) {
-  const accessLine = [data.permissionToEnter, data.accessNotes].filter(Boolean).join(" ");
-  const issueLine = data.problemDescription || data.issueDetails || "General maintenance issue reported.";
-  const vendorName = data.vendorAssigned || "Assigned Vendor";
-
-  return `ASPEN NW REAL ESTATE LLC
-Vendor Work Order Instructions
-
-Property: ${data.propertyAddress}${data.city ? `, ${data.city}` : ""}${data.state ? `, ${data.state}` : ""}${data.zip ? ` ${data.zip}` : ""}
-Work Order #: ${data.workOrderNumber || "--"}
-Vendor: ${vendorName}
-
-Tenant / Access:
-${data.tenantNames || "--"}
-${data.tenantPhones ? `Phone: ${data.tenantPhones}` : ""}
-${data.tenantEmails ? `Email: ${data.tenantEmails}` : ""}
-Availability: ${data.tenantAvailability || "--"}
-Permission / Access Notes: ${accessLine || "--"}
-
-Issue Summary:
-${issueLine}
-
-Classification:
-Trade Category: ${classification.tradeCategory || "--"}
-Job Type: ${classification.jobType || "--"}
-Recommended Path: ${classification.recommendedPath || "--"}
-
-Scope of Work:
-1. Inspect and diagnose the reported issue.
-2. Confirm cause of failure and whether repair is recommended.
-3. Provide estimate for any work beyond initial diagnostic.
-4. Complete minor repair only if within authorized limit.
-5. Advise whether repair or replacement is the better option if applicable.
-
-Pricing Guidance:
-Suggested Service Call: ${formatCurrency(parseCurrencyInput(pricing.serviceCall))}
-Suggested Labor: ${formatCurrency(parseCurrencyInput(pricing.labor))}
-Suggested Materials Allowance: ${formatCurrency(parseCurrencyInput(pricing.materials))}
-Suggested Total: ${formatCurrency(parseCurrencyInput(pricing.total))}
-
-Authorization:
-Maintenance Limit: ${data.maintenanceLimit ? formatCurrency(parseCurrencyInput(data.maintenanceLimit)) : "--"}
-${pricing.approvalNeeded ? "Do not exceed limit without Aspen NW approval." : "Proceed within approved maintenance limit."}
-
-Completion Requirements:
-- Provide diagnosis and recommendation
-- Include parts and labor breakdown if additional work is needed
-- Provide photos if applicable
-- Reference work order number on invoice
-
-Billing:
-Reference Work Order #${data.workOrderNumber || "--"} on invoice.`;
-}
-
-function buildOwnerUpdate(
-  data: ExtractedWorkOrder,
-  classification: JobClassification,
-  pricing: PricingBreakdown
-) {
-  const issue = data.problemDescription || data.issueDetails || "a maintenance issue";
-  const vendor = data.vendorAssigned || "the vendor";
-  const safety = data.safetyConcern
-    ? `The reported notes indicate: ${data.safetyConcern}.`
-    : "At this time, there are no reported indications of an immediate safety concern.";
-
-  return `The tenant has reported ${
-    issue.charAt(0).toLowerCase() === issue.charAt(0) ? issue : issue.toLowerCase()
-  }${issue.endsWith(".") ? "" : "."}
-
-${safety}
-
-We have requested ${vendor} to inspect the issue and advise what work is recommended. Based on the current review, this appears to fall under ${classification.jobType || "general maintenance"}.
-
-Current pricing guidance is approximately ${formatCurrency(parseCurrencyInput(pricing.total))}${
-    pricing.approvalNeeded
-      ? `, which is above the current maintenance limit of ${formatCurrency(parseCurrencyInput(data.maintenanceLimit))} and would require approval before proceeding beyond diagnostic work.`
-      : "."
-  }
-
-We will follow up once the vendor provides findings and next-step recommendations.`;
-}
-
-function buildInternalSummary(
-  data: ExtractedWorkOrder,
-  classification: JobClassification,
-  pricing: PricingBreakdown
-) {
-  return `Internal Summary
-
-Work Order: ${data.workOrderNumber || "--"}
-Property: ${data.propertyAddress || "--"}
-Issue Category: ${data.issueCategory || "--"}
-Job Type: ${classification.jobType || "--"}
-Vendor: ${data.vendorAssigned || "--"}
-Suggested Total: ${formatCurrency(parseCurrencyInput(pricing.total))}
-Approval Needed: ${pricing.approvalNeeded ? "Yes" : "No"}
-
-Pricing Note:
-${pricing.pricingNote || "--"}`;
-}
-
-function parseWorkOrderText(rawText: string): ExtractedWorkOrder {
-  const normalized = normalizeWhitespace(rawText);
-  const compact = normalized.replace(/\s+/g, " ").trim();
-
-  const workOrderNumber =
-    extractFirstMatch(
-      compact,
-      /\b(\d{3,}-\d+)\b\s+(?:New|Open|Closed|Completed|Pending)\s+\d{1,2}\/\d{1,2}\/\d{4}/i
-    ) || "";
-
-  const status =
-    extractFirstMatch(
-      compact,
-      /\b\d{3,}-\d+\b\s+(New|Open|Closed|Completed|Pending)\s+\d{1,2}\/\d{1,2}\/\d{4}/i
-    ) || "";
-
-  const createdOn = formatDateForInput(
-    extractFirstMatch(
-      compact,
-      /\b\d{3,}-\d+\b\s+(?:New|Open|Closed|Completed|Pending)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i
-    ) || ""
+  return (
+    TAX_RATE_OPTIONS.find(
+      (item) => normalizeTaxName(item.name) === normalizedCity,
+    ) || null
   );
+}
 
-  const maintenanceLimit =
-    extractFirstMatch(compact, /Maintenance Limit\s*\$?([0-9,]+\.\d{2}|[0-9,]+)/i) || "";
+function lineTotal(line: BuilderLine) {
+  return asNumber(line.qty || "1") * asNumber(line.unitPrice);
+}
 
-  const permissionToEnter =
-    extractFirstMatch(compact, /Permission to Enter\s+(.*?)\s+Job Site\b/i) || "";
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-semibold text-[#334155]">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
 
-  const jobSiteBlock =
-    extractFirstMatch(compact, /Job Site\s+(.*?)\s+Pet\(s\)\b/i) || "";
+function TextInput({
+  value,
+  onChange,
+  placeholder = "",
+  type = "text",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-2xl border border-[#d8d2c4] bg-[#f7f4ed] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#c9a227] focus:bg-white focus:ring-2 focus:ring-[#c9a227]/20"
+    />
+  );
+}
 
-  const propertyAddress =
-    extractFirstMatch(
-      jobSiteBlock,
-      /((?:\d{2,6}\s+[A-Za-z0-9.'#\-]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Place|Pl|Way|Blvd|Boulevard|Terrace|Ter)(?:\s+[A-Za-z0-9.'#\-]+)*))/i
-    ) || "";
-
-  const city =
-    extractFirstMatch(jobSiteBlock, /([A-Za-z .'-]+),\s*[A-Z]{2}\s*\d{5}/i) || "";
-
-  const state =
-    extractFirstMatch(jobSiteBlock, /[A-Za-z .'-]+,\s*([A-Z]{2})\s*\d{5}/i) || "WA";
-
-  const zip =
-    extractFirstMatch(jobSiteBlock, /[A-Za-z .'-]+,\s*[A-Z]{2}\s*(\d{5})/i) || "";
-
-  const tenantNames = Array.from(
-    compact.matchAll(
-      /([A-Z][a-z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-z'-]+)+)\s+(?:Mobile|Phone)\s*-\s*\([0-9]{3}\)\s*[0-9\-]{8,}/g
-    )
-  )
-    .map((m) => m[1]?.trim())
-    .filter(Boolean)
-    .join(", ");
-
-  const tenantPhones = Array.from(
-    compact.matchAll(/(?:Mobile|Phone)\s*-\s*(\([0-9]{3}\)\s*[0-9\-]{8,})/g)
-  )
-    .map((m) => m[1]?.trim())
-    .filter((phone) => phone !== "(253) 584-8200" && phone !== "(253) 683-4549")
-    .join(", ");
-
-  const tenantEmails = Array.from(
-    compact.matchAll(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi)
-  )
-    .map((m) => m[0])
-    .filter(Boolean)
-    .join(", ");
-
-  const tenantAvailability =
-    extractFirstMatch(compact, /Tenant Availability\s+(.*?)\s+Description\b/i) ||
-    (compact.includes(" Anytime ") || compact.endsWith(" Anytime") || compact.includes("Anytime Tenant")
-      ? "Anytime"
-      : "");
-
-  const pets =
-    extractFirstMatch(compact, /Pet\(s\)\s+([^-][A-Za-z0-9 .,'()/-]*?)(?=\s+Maintenance Limit\b)/i) ||
-    (compact.includes("Pet(s) --") ? "--" : "");
-
-  const description =
-    extractFirstMatch(compact, /Description\s+(.*?)\s+Issue Details\b/i) ||
-    extractFirstMatch(compact, /Description\s+(.*?)\s+Created By:/i) ||
-    "";
-
-  const issueDetails =
-    extractFirstMatch(compact, /Issue Details\s+(.*?)\s+Created By:/i) || "";
-
-  const issueCategory =
-    extractFirstMatch(compact, /Issue\s+([A-Za-z\/ ]+?)\s+Sparking or smoking\b/i) ||
-    inferIssueCategory(`${description} ${issueDetails}`);
-
-  const makeModel =
-    extractFirstMatch(compact, /Make and model number\s*([A-Z0-9\-]+)/i) ||
-    extractFirstMatch(compact, /Make\/model:\s*([A-Z0-9\-]+)/i) ||
-    "";
-
-  const applianceBits = extractApplianceInfo(`${description} ${issueDetails} ${makeModel}`);
-
-  const safetyConcern = compact.match(/Sparking or smoking\s*No/i)
-    ? "No sparking or smoking reported."
-    : compact.match(/Sparking or smoking\s*Yes/i)
-      ? "Sparking or smoking reported."
-      : "";
-
-  const accessNotes =
-    permissionToEnter.toLowerCase().includes("tenant requests") ||
-    permissionToEnter.toLowerCase().includes("gate")
-      ? permissionToEnter
-      : "";
-
-  return {
-    ...DEFAULT_EXTRACTED,
-    workOrderNumber,
-    status,
-    createdOn,
-    propertyAddress,
-    city,
-    state,
-    zip,
-    tenantNames,
-    tenantPhones,
-    tenantEmails,
-    tenantAvailability,
-    permissionToEnter,
-    accessNotes,
-    pets,
-    maintenanceLimit: maintenanceLimit
-      ? Number(maintenanceLimit.replace(/,/g, "")).toFixed(2)
-      : "",
-    issueCategory,
-    issueSubcategory: "",
-    applianceType: applianceBits.applianceType || issueCategory,
-    brand: applianceBits.brand,
-    model: makeModel || applianceBits.model,
-    problemDescription: description,
-    issueDetails,
-    safetyConcern,
-    requestedAction: "Inspect issue and advise what repair is recommended.",
-  };
+function TextArea({
+  value,
+  onChange,
+  rows = 3,
+  placeholder = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  return (
+    <textarea
+      value={value}
+      rows={rows}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-2xl border border-[#d8d2c4] bg-[#f7f4ed] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#c9a227] focus:bg-white focus:ring-2 focus:ring-[#c9a227]/20"
+    />
+  );
 }
 
 export default function WorkOrderPricingPage() {
-  const supabase = createClient();
-
-  const [uploadedPdf, setUploadedPdf] = useState<UploadedPdf>({
-    file: null,
-    fileName: "",
-  });
-
-  const [rawPdfText, setRawPdfText] = useState("");
-  const [extractedData, setExtractedData] = useState<ExtractedWorkOrder>(DEFAULT_EXTRACTED);
-  const [classification, setClassification] = useState<JobClassification>(DEFAULT_CLASSIFICATION);
-  const [pricing, setPricing] = useState<PricingBreakdown>(DEFAULT_PRICING);
-  const [outputs, setOutputs] = useState<GeneratedOutputs>(DEFAULT_OUTPUTS);
-  const [internalReview, setInternalReview] = useState<InternalReview>(DEFAULT_INTERNAL_REVIEW);
+  const [activeCategory, setActiveCategory] = useState<Category>("Appliance");
+  const [groups, setGroups] = useState<NotebookGroup[]>(STARTER_GROUPS);
+  const [lines, setLines] = useState<NotebookLine[]>(STARTER_LINES);
+  const [activeGroupId, setActiveGroupId] = useState(
+    "grp-appliance-dishwasher",
+  );
+  const [workOrder, setWorkOrder] = useState<WorkOrderInfo>(DEFAULT_WORK_ORDER);
+  const [builderLines, setBuilderLines] = useState<BuilderLine[]>([]);
+  const [taxRate, setTaxRate] = useState("10.50");
+  const [taxName, setTaxName] = useState("Issaquah");
+  const [search, setSearch] = useState("");
+  const [statusMessage, setStatusMessage] = useState("Ready.");
   const [savedRecords, setSavedRecords] = useState<SavedPricingRecord[]>([]);
+  const [selectedRecordId, setSelectedRecordId] = useState("");
+  const [sharedNotebookLoaded, setSharedNotebookLoaded] = useState(false);
+  const [sharedNotebookStatus, setSharedNotebookStatus] = useState("Cloud pricing not loaded yet.");
 
-  const [statusMessage, setStatusMessage] = useState("");
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isGeneratingPricing, setIsGeneratingPricing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
 
-  const subtotal = useMemo(() => {
-    return (
-      parseCurrencyInput(pricing.serviceCall) +
-      parseCurrencyInput(pricing.labor) +
-      parseCurrencyInput(pricing.materials) +
-      parseCurrencyInput(pricing.disposal) +
-      parseCurrencyInput(pricing.other)
-    );
-  }, [pricing]);
+    async function loadSavedData() {
+      try {
+        const savedGroups = localStorage.getItem(NOTEBOOK_GROUPS_KEY);
+        if (savedGroups) {
+          const parsed = JSON.parse(savedGroups);
+          if (Array.isArray(parsed)) setGroups(parsed);
+        }
 
-  async function handlePdfSelect(file: File | null) {
-    if (!file) return;
-    setUploadedPdf({
-      file,
-      fileName: file.name,
-      uploadedAt: new Date().toISOString(),
-    });
-    setStatusMessage(`Loaded PDF: ${file.name}`);
-  }
+        const savedLines = localStorage.getItem(NOTEBOOK_LINES_KEY);
+        if (savedLines) {
+          const parsed = JSON.parse(savedLines);
+          if (Array.isArray(parsed)) setLines(parsed);
+        }
 
-  function handleClearAll() {
-    setUploadedPdf({ file: null, fileName: "" });
-    setRawPdfText("");
-    setExtractedData(DEFAULT_EXTRACTED);
-    setClassification(DEFAULT_CLASSIFICATION);
-    setPricing(DEFAULT_PRICING);
-    setOutputs(DEFAULT_OUTPUTS);
-    setInternalReview(DEFAULT_INTERNAL_REVIEW);
-    setStatusMessage("Form cleared.");
-  }
+        const savedBuilder = localStorage.getItem(BUILDER_STORAGE_KEY);
+        if (savedBuilder) {
+          const parsed = JSON.parse(savedBuilder);
+          if (parsed?.workOrder)
+            setWorkOrder({ ...DEFAULT_WORK_ORDER, ...parsed.workOrder });
+          if (Array.isArray(parsed?.builderLines))
+            setBuilderLines(parsed.builderLines);
+          if (parsed?.taxRate) setTaxRate(parsed.taxRate);
+          if (parsed?.taxName) setTaxName(parsed.taxName);
+        }
 
-  async function extractPdfText(file: File) {
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const saved = localStorage.getItem(SAVED_RECORDS_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setSavedRecords(parsed);
+        }
+      } catch {
+        setStatusMessage("Saved local pricing data could not be loaded.");
+      }
 
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-      import.meta.url
-    ).toString();
+      try {
+        const cloudRecord = await loadSharedNotebookFromCloud();
+        if (cancelled) return;
 
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    const loadingTask = pdfjs.getDocument({ data: uint8Array });
-    const pdf = await loadingTask.promise;
-
-    let fullText = "";
-
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: unknown) => {
-          if (typeof item === "object" && item !== null && "str" in item) {
-            return String((item as { str: unknown }).str ?? "");
+        if (cloudRecord) {
+          if (Array.isArray(cloudRecord.groups_json)) {
+            setGroups(cloudRecord.groups_json);
+            localStorage.setItem(
+              NOTEBOOK_GROUPS_KEY,
+              JSON.stringify(cloudRecord.groups_json),
+            );
           }
-          return "";
-        })
-        .join(" ");
-      fullText += `\n${pageText}\n`;
+          if (Array.isArray(cloudRecord.lines_json)) {
+            setLines(cloudRecord.lines_json);
+            localStorage.setItem(
+              NOTEBOOK_LINES_KEY,
+              JSON.stringify(cloudRecord.lines_json),
+            );
+          }
+          setSharedNotebookStatus("Cloud pricing loaded and shared across devices.");
+          setStatusMessage("Cloud pricing loaded.");
+        } else {
+          await saveSharedNotebookToCloud(STARTER_GROUPS, STARTER_LINES);
+          if (cancelled) return;
+          setSharedNotebookStatus("Cloud pricing table initialized with starter pricing.");
+          setStatusMessage("Cloud pricing initialized.");
+        }
+      } catch {
+        if (cancelled) return;
+        setSharedNotebookStatus(
+          "Cloud pricing not connected. Using this device only until Supabase table/env vars are fixed.",
+        );
+      } finally {
+        if (!cancelled) setSharedNotebookLoaded(true);
+      }
     }
 
-    return normalizeWhitespace(fullText);
+    loadSavedData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(NOTEBOOK_GROUPS_KEY, JSON.stringify(groups));
+  }, [groups]);
+
+  useEffect(() => {
+    localStorage.setItem(NOTEBOOK_LINES_KEY, JSON.stringify(lines));
+  }, [lines]);
+
+  useEffect(() => {
+    if (!sharedNotebookLoaded) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        await saveSharedNotebookToCloud(groups, lines);
+        setSharedNotebookStatus("Cloud pricing saved. Changes are shared across devices.");
+      } catch {
+        setSharedNotebookStatus(
+          "Cloud pricing save failed. This change is only saved on this device.",
+        );
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [groups, lines, sharedNotebookLoaded]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      BUILDER_STORAGE_KEY,
+      JSON.stringify({ workOrder, builderLines, taxRate, taxName }),
+    );
+  }, [workOrder, builderLines, taxRate, taxName]);
+
+
+  useEffect(() => {
+    const matchedTax = findTaxRateByCity(workOrder.city);
+    if (!matchedTax) return;
+
+    setTaxName((currentName) =>
+      currentName === matchedTax.name ? currentName : matchedTax.name,
+    );
+    setTaxRate((currentRate) =>
+      asNumber(currentRate).toFixed(2) === asNumber(matchedTax.rate).toFixed(2)
+        ? currentRate
+        : matchedTax.rate,
+    );
+  }, [workOrder.city]);
+
+  useEffect(() => {
+    const firstGroup = groups.find(
+      (group) => group.category === activeCategory,
+    );
+    if (
+      firstGroup &&
+      !groups.some(
+        (group) =>
+          group.id === activeGroupId && group.category === activeCategory,
+      )
+    ) {
+      setActiveGroupId(firstGroup.id);
+    }
+  }, [activeCategory, activeGroupId, groups]);
+
+  const categoryGroups = useMemo(
+    () => groups.filter((group) => group.category === activeCategory),
+    [groups, activeCategory],
+  );
+
+  const activeGroup = useMemo(
+    () =>
+      groups.find((group) => group.id === activeGroupId) ||
+      categoryGroups[0] ||
+      null,
+    [groups, activeGroupId, categoryGroups],
+  );
+
+  const visibleLines = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return lines
+      .filter((line) => line.groupId === activeGroup?.id)
+      .filter((line) => {
+        if (!q) return true;
+        return [line.description, line.type, line.notes]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      });
+  }, [lines, activeGroup, search]);
+
+  const selectedIds = useMemo(
+    () =>
+      new Set(builderLines.map((line) => line.sourceLineId).filter(Boolean)),
+    [builderLines],
+  );
+
+  const totals = useMemo(() => {
+    const labor = builderLines
+      .filter(
+        (line) =>
+          line.type === "Labor" ||
+          line.type === "Package" ||
+          line.type === "Service Call",
+      )
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const materials = builderLines
+      .filter((line) => line.type === "Material")
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const disposal = builderLines
+      .filter((line) => line.type === "Disposal")
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const trip = builderLines
+      .filter((line) => line.type === "Trip Fee")
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const other = builderLines
+      .filter((line) => line.type === "Other")
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const taxable = builderLines
+      .filter((line) => line.taxable)
+      .reduce((sum, line) => sum + lineTotal(line), 0);
+    const tax = taxable * (asNumber(taxRate) / 100);
+    const subtotal = labor + materials + disposal + trip + other;
+    return {
+      labor,
+      materials,
+      disposal,
+      trip,
+      other,
+      taxable,
+      tax,
+      subtotal,
+      grand: subtotal + tax,
+    };
+  }, [builderLines, taxRate]);
+
+  function updateWorkOrder<K extends keyof WorkOrderInfo>(
+    key: K,
+    value: WorkOrderInfo[K],
+  ) {
+    setWorkOrder((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleExtractWorkOrder() {
-    if (!uploadedPdf.file) {
-      setStatusMessage("Choose a PDF first.");
+  function updateGroup<K extends keyof NotebookGroup>(
+    id: string,
+    key: K,
+    value: NotebookGroup[K],
+  ) {
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === id ? { ...group, [key]: value } : group,
+      ),
+    );
+  }
+
+  function addGroup() {
+    const group: NotebookGroup = {
+      id: uid("group"),
+      category: activeCategory,
+      name: "New subcategory",
+      notes: "",
+    };
+    setGroups((prev) => [group, ...prev]);
+    setActiveGroupId(group.id);
+    setStatusMessage(`Added ${activeCategory} subcategory.`);
+  }
+
+  function deleteGroup(id: string) {
+    if (!window.confirm("Delete this subcategory and all rows under it?"))
+      return;
+    const deletingLineIds = lines
+      .filter((line) => line.groupId === id)
+      .map((line) => line.id);
+    setGroups((prev) => prev.filter((group) => group.id !== id));
+    setLines((prev) => prev.filter((line) => line.groupId !== id));
+    setBuilderLines((prev) =>
+      prev.filter((line) => !deletingLineIds.includes(line.sourceLineId || "")),
+    );
+    setStatusMessage("Subcategory deleted.");
+  }
+
+  function updateLine<K extends keyof NotebookLine>(
+    id: string,
+    key: K,
+    value: NotebookLine[K],
+  ) {
+    setLines((prev) =>
+      prev.map((line) => (line.id === id ? { ...line, [key]: value } : line)),
+    );
+  }
+
+  function addNotebookLine() {
+    if (!activeGroup) {
+      addGroup();
       return;
     }
+    const line: NotebookLine = {
+      id: uid("price"),
+      groupId: activeGroup.id,
+      category: activeCategory,
+      description: "New pricing item",
+      type: "Labor",
+      price: "0.00",
+      taxable: true,
+      notes: "",
+    };
+    setLines((prev) => [line, ...prev]);
+    setStatusMessage(`Added pricing row under ${activeGroup.name}.`);
+  }
 
-    setIsExtracting(true);
-    setStatusMessage("Extracting PDF text...");
+  function deleteNotebookLine(id: string) {
+    setLines((prev) => prev.filter((line) => line.id !== id));
+    setBuilderLines((prev) => prev.filter((line) => line.sourceLineId !== id));
+    setStatusMessage("Pricing row deleted.");
+  }
 
-    try {
-      const text = await extractPdfText(uploadedPdf.file);
-      setRawPdfText(text);
-
-      const parsed = parseWorkOrderText(text);
-      const nextClassification = classifyWorkOrder(parsed);
-      const rule = findPricingRule(parsed, nextClassification);
-      const nextPricing = calculatePricing(rule, parsed, nextClassification);
-
-      setExtractedData(parsed);
-      setClassification(nextClassification);
-      setPricing(nextPricing);
-      setOutputs({
-        vendorInstructions: buildVendorInstructions(parsed, nextClassification, nextPricing),
-        ownerUpdate: buildOwnerUpdate(parsed, nextClassification, nextPricing),
-        internalSummary: buildInternalSummary(parsed, nextClassification, nextPricing),
-      });
-
-      setStatusMessage("PDF extracted and work order fields populated.");
-    } catch (error) {
-      console.error(error);
-      setStatusMessage("PDF extraction failed. Confirm pdfjs-dist is installed and try again.");
-    } finally {
-      setIsExtracting(false);
+  function toggleBuilderLine(item: NotebookLine) {
+    if (selectedIds.has(item.id)) {
+      setBuilderLines((prev) =>
+        prev.filter((line) => line.sourceLineId !== item.id),
+      );
+      setStatusMessage("Removed from pricing builder.");
+      return;
     }
+    setBuilderLines((prev) => [
+      ...prev,
+      {
+        id: uid("line"),
+        sourceLineId: item.id,
+        description: item.description,
+        type: item.type,
+        qty: "1",
+        unitPrice: asNumber(item.price).toFixed(2),
+        taxable: item.taxable,
+      },
+    ]);
+    setStatusMessage("Added to pricing builder.");
   }
 
-  function updateExtractedField<K extends keyof ExtractedWorkOrder>(field: K, value: ExtractedWorkOrder[K]) {
-    setExtractedData((prev) => ({ ...prev, [field]: value }));
+  function addBlankBuilderLine() {
+    setBuilderLines((prev) => [
+      ...prev,
+      {
+        id: uid("line"),
+        description: "Custom line item",
+        type: "Labor",
+        qty: "1",
+        unitPrice: "0.00",
+        taxable: true,
+      },
+    ]);
+    setStatusMessage("Custom pricing line added.");
   }
 
-  function updateClassificationField<K extends keyof JobClassification>(
-    field: K,
-    value: JobClassification[K]
+  function updateBuilderLine<K extends keyof BuilderLine>(
+    id: string,
+    key: K,
+    value: BuilderLine[K],
   ) {
-    setClassification((prev) => ({ ...prev, [field]: value }));
+    setBuilderLines((prev) =>
+      prev.map((line) => (line.id === id ? { ...line, [key]: value } : line)),
+    );
   }
 
-  function updatePricingField<K extends keyof PricingBreakdown>(field: K, value: PricingBreakdown[K]) {
-    setPricing((prev) => ({ ...prev, [field]: value }));
+  function removeBuilderLine(id: string) {
+    setBuilderLines((prev) => prev.filter((line) => line.id !== id));
   }
 
-  function updateInternalReviewField<K extends keyof InternalReview>(field: K, value: InternalReview[K]) {
-    setInternalReview((prev) => ({ ...prev, [field]: value }));
-  }
 
-  async function handleGeneratePricing() {
-    setIsGeneratingPricing(true);
-    try {
-      const nextClassification = classifyWorkOrder(extractedData);
-      const rule = findPricingRule(extractedData, nextClassification);
-      const nextPricing = calculatePricing(rule, extractedData, nextClassification);
-
-      setClassification(nextClassification);
-      setPricing(nextPricing);
-      setOutputs((prev) => ({
-        ...prev,
-        internalSummary: buildInternalSummary(extractedData, nextClassification, nextPricing),
-      }));
-      setStatusMessage("Pricing refreshed.");
-    } finally {
-      setIsGeneratingPricing(false);
+  function firstText(...values: unknown[]) {
+    for (const value of values) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (typeof value === "number" && Number.isFinite(value)) return String(value);
     }
+    return "";
   }
 
-  function handleGenerateVendorInstructions() {
-    const text = buildVendorInstructions(extractedData, classification, pricing);
-    setOutputs((prev) => ({ ...prev, vendorInstructions: text }));
-    setStatusMessage("Vendor instructions generated.");
+  function normalizePushedWorkOrder(incoming: PushedWorkOrder): WorkOrderInfo {
+    return {
+      sourceId: firstText(incoming.sourceId, incoming.id, incoming.workOrderNumber, workOrder.sourceId),
+      workOrderNumber: firstText(incoming.workOrderNumber, incoming.sourceId, incoming.id, workOrder.workOrderNumber),
+      status: firstText(incoming.status, workOrder.status, "New"),
+      createdOn: firstText(
+        incoming.createdOn,
+        incoming.createdAt ? incoming.createdAt.slice(0, 10) : "",
+        workOrder.createdOn,
+        today(),
+      ),
+      maintenanceLimit: firstText(incoming.maintenanceLimit, workOrder.maintenanceLimit),
+      propertyAddress: firstText(
+        incoming.propertyAddress,
+        incoming.address,
+        incoming.fullAddress,
+        incoming.property,
+        workOrder.propertyAddress,
+      ),
+      unit: firstText(incoming.unit, workOrder.unit),
+      city: firstText(incoming.city, workOrder.city),
+      state: firstText(incoming.state, workOrder.state, "WA"),
+      zip: firstText(incoming.zip, workOrder.zip),
+      issueCategory: firstText(incoming.category, incoming.issueCategory, workOrder.issueCategory),
+      problemDescription: firstText(
+        incoming.description,
+        incoming.problemDescription,
+        incoming.issueDescription,
+        workOrder.problemDescription,
+      ),
+      accessNotes: firstText(incoming.accessNotes, workOrder.accessNotes),
+    };
   }
 
-  function handleGenerateOwnerUpdate() {
-    const text = buildOwnerUpdate(extractedData, classification, pricing);
-    setOutputs((prev) => ({ ...prev, ownerUpdate: text }));
-    setStatusMessage("Owner update generated.");
-  }
-
-  function handleGenerateAllOutputs() {
-    const vendorInstructions = buildVendorInstructions(extractedData, classification, pricing);
-    const ownerUpdate = buildOwnerUpdate(extractedData, classification, pricing);
-    const internalSummary = buildInternalSummary(extractedData, classification, pricing);
-
-    setOutputs({
-      vendorInstructions,
-      ownerUpdate,
-      internalSummary,
-    });
-    setStatusMessage("All outputs generated.");
-  }
-
-  async function copyToClipboard(text: string, label: string) {
+  function importPushedWorkOrder() {
     try {
-      await navigator.clipboard.writeText(text);
-      setStatusMessage(`${label} copied.`);
+      const raw = localStorage.getItem(WORK_ORDER_PRICING_QUEUE_KEY) || localStorage.getItem("five_tools_work_order_pricing_seed_v1");
+      const parsed = raw ? JSON.parse(raw) : [];
+      const queue: PushedWorkOrder[] = Array.isArray(parsed) ? parsed : [parsed];
+      const incoming = Array.isArray(queue) ? queue[0] : null;
+      if (!incoming) {
+        setStatusMessage("No pushed work order found.");
+        return;
+      }
+      setWorkOrder(normalizePushedWorkOrder(incoming));
+      localStorage.removeItem(WORK_ORDER_PRICING_QUEUE_KEY);
+      localStorage.removeItem("five_tools_work_order_pricing_seed_v1");
+      setStatusMessage("Pushed work order imported.");
     } catch {
-      setStatusMessage(`Could not copy ${label.toLowerCase()}.`);
+      setStatusMessage("Could not import pushed work order.");
     }
   }
 
-  async function handleSaveRecord() {
-    setIsSaving(true);
-    setStatusMessage("Saving record...");
-
+  function sendPricingBackToServiceTicket(record: SavedPricingRecord) {
     try {
+      const raw = localStorage.getItem(WORK_ORDER_PRICING_RETURN_QUEUE_KEY);
+      const existing = raw ? JSON.parse(raw) : [];
+      const queue = Array.isArray(existing) ? existing : [];
+      const sourceId =
+        record.workOrder.sourceId || record.workOrder.workOrderNumber || record.id;
       const payload = {
-        file_name: uploadedPdf.fileName || null,
-        raw_pdf_text: rawPdfText || null,
-
-        work_order_number: extractedData.workOrderNumber || null,
-        status: extractedData.status || null,
-        created_on: extractedData.createdOn || null,
-        estimate_requested_on: extractedData.estimateRequestedOn || null,
-        estimate_amount: extractedData.estimateAmount || null,
-        estimated_on: extractedData.estimatedOn || null,
-        scheduled_on: extractedData.scheduledOn || null,
-        completed_on: extractedData.completedOn || null,
-
-        property_address: extractedData.propertyAddress || null,
-        city: extractedData.city || null,
-        state: extractedData.state || null,
-        zip: extractedData.zip || null,
-        unit: extractedData.unit || null,
-
-        tenant_names: extractedData.tenantNames || null,
-        tenant_phones: extractedData.tenantPhones || null,
-        tenant_emails: extractedData.tenantEmails || null,
-        tenant_availability: extractedData.tenantAvailability || null,
-
-        permission_to_enter: extractedData.permissionToEnter || null,
-        access_notes: extractedData.accessNotes || null,
-        pets: extractedData.pets || null,
-        maintenance_limit: extractedData.maintenanceLimit || null,
-
-        issue_category: extractedData.issueCategory || null,
-        issue_subcategory: extractedData.issueSubcategory || null,
-        appliance_type: extractedData.applianceType || null,
-        brand: extractedData.brand || null,
-        model: extractedData.model || null,
-
-        problem_description: extractedData.problemDescription || null,
-        issue_details: extractedData.issueDetails || null,
-        safety_concern: extractedData.safetyConcern || null,
-
-        vendor_assigned: extractedData.vendorAssigned || null,
-        requested_action: extractedData.requestedAction || null,
-
-        trade_category: classification.tradeCategory || null,
-        job_type: classification.jobType || null,
-        severity: classification.severity || null,
-        occupancy_status: classification.occupancyStatus || null,
-        access_complexity: classification.accessComplexity || null,
-        recommended_path: classification.recommendedPath || null,
-        confidence: classification.confidence || null,
-
-        pricing_rule_used: pricing.pricingRuleUsed || null,
-        service_call: parseCurrencyInput(pricing.serviceCall),
-        labor: parseCurrencyInput(pricing.labor),
-        materials: parseCurrencyInput(pricing.materials),
-        disposal: parseCurrencyInput(pricing.disposal),
-        other_amount: parseCurrencyInput(pricing.other),
-        tax_rate: parseCurrencyInput(pricing.taxRate),
-        tax_amount: parseCurrencyInput(pricing.taxAmount),
-        total_amount: parseCurrencyInput(pricing.total),
-        pricing_note: pricing.pricingNote || null,
-        approval_needed: pricing.approvalNeeded,
-        manual_review_required: pricing.manualReviewRequired,
-
-        vendor_instructions: outputs.vendorInstructions || null,
-        owner_update: outputs.ownerUpdate || null,
-        internal_summary: outputs.internalSummary || null,
-
-        assigned_to: internalReview.assignedTo || null,
-        record_status: internalReview.status || null,
-        follow_up_date: internalReview.followUpDate || null,
-        internal_notes: internalReview.internalNotes || null,
+        sourceId,
+        workOrderNumber: record.workOrder.workOrderNumber,
+        propertyAddress: record.workOrder.propertyAddress,
+        address: record.workOrder.propertyAddress,
+        unit: record.workOrder.unit,
+        city: record.workOrder.city,
+        state: record.workOrder.state,
+        zip: record.workOrder.zip,
+        status: record.workOrder.status,
+        issueCategory: record.workOrder.issueCategory,
+        problemDescription: record.workOrder.problemDescription,
+        accessNotes: record.workOrder.accessNotes,
+        maintenanceLimit: record.workOrder.maintenanceLimit,
+        workOrder: record.workOrder,
+        pricingRecordId: record.id,
+        estimateStatus: "Completed",
+        estimateTotal: totals.grand,
+        subtotal: totals.subtotal,
+        taxRate: asNumber(record.taxRate),
+        taxAmount: totals.tax,
+        materialsTotal: totals.materials,
+        laborTotal: totals.labor,
+        disposalTotal: totals.disposal,
+        tripFee: totals.trip,
+        otherTotal: totals.other,
+        lineItems: record.builderLines.map((line) => ({
+          id: line.id,
+          description: line.description,
+          type: line.type,
+          qty: asNumber(line.qty || "1"),
+          unitPrice: asNumber(line.unitPrice),
+          taxable: line.taxable,
+          total: lineTotal(line),
+        })),
+        savedAt: record.savedAt,
+      };
+      const filtered = queue.filter(
+        (item: { sourceId?: string; workOrderNumber?: string }) =>
+          (item.sourceId || item.workOrderNumber) !== sourceId,
+      );
+      const returnPayload = {
+        ...payload,
+        source: "Work Order Pricing",
+        target: "Service Ticket",
+        route: "/service-ticket",
       };
 
-      const { error } = await supabase.from("work_order_pricing_records").insert(payload);
+      localStorage.setItem(
+        SERVICE_TICKET_PRICING_RETURN_QUEUE_KEY,
+        JSON.stringify([returnPayload, ...filtered]),
+      );
+      localStorage.setItem(SERVICE_TICKET_PRICING_DRAFT_KEY, JSON.stringify(returnPayload));
 
-      if (error) throw error;
-
-      setStatusMessage("Record saved.");
-      await handleLoadSavedRecords();
-    } catch (error: unknown) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Save failed.";
-      setStatusMessage(message);
-    } finally {
-      setIsSaving(false);
+      // Legacy compatibility: keep the old Work Order return queue populated too,
+      // but the active pricing loop is Service Ticket -> Work Order Pricing -> Service Ticket.
+      localStorage.setItem(
+        WORK_ORDER_PRICING_RETURN_QUEUE_KEY,
+        JSON.stringify([returnPayload, ...filtered]),
+      );
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  async function handleLoadSavedRecords() {
-    setIsLoadingRecords(true);
-    try {
-      const { data, error } = await supabase
-        .from("work_order_pricing_records")
-        .select(
-          "id, created_at, file_name, work_order_number, property_address, issue_category, job_type, total_amount, record_status"
-        )
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      setSavedRecords((data as SavedPricingRecord[]) || []);
-      setStatusMessage("Saved records loaded.");
-    } catch (error: unknown) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Could not load saved records.";
-      setStatusMessage(message);
-    } finally {
-      setIsLoadingRecords(false);
-    }
+  function savePricingRecord() {
+    const record: SavedPricingRecord = {
+      id: uid("pricing-record"),
+      savedAt: new Date().toISOString(),
+      workOrder,
+      builderLines,
+      taxRate,
+      taxName,
+    };
+    const next = [record, ...savedRecords].slice(0, 100);
+    setSavedRecords(next);
+    localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(next));
+    setSelectedRecordId(record.id);
+    const sentBack = sendPricingBackToServiceTicket(record);
+    setStatusMessage(
+      sentBack
+        ? "Pricing record saved and sent back to Service Ticket."
+        : "Pricing record saved. Could not send back to Service Ticket.",
+    );
   }
 
-  async function handleLoadSingleRecord(recordId: string) {
-    try {
-      const { data, error } = await supabase
-        .from("work_order_pricing_records")
-        .select("*")
-        .eq("id", recordId)
-        .single();
-
-      if (error) throw error;
-
-      setUploadedPdf({
-        file: null,
-        fileName: safeString(data.file_name),
-      });
-
-      setRawPdfText(safeString(data.raw_pdf_text));
-      setExtractedData({
-        ...DEFAULT_EXTRACTED,
-        workOrderNumber: safeString(data.work_order_number),
-        status: safeString(data.status),
-        createdOn: formatDateForInput(safeString(data.created_on)),
-        estimateRequestedOn: safeString(data.estimate_requested_on),
-        estimateAmount: safeString(data.estimate_amount),
-        estimatedOn: safeString(data.estimated_on),
-        scheduledOn: safeString(data.scheduled_on),
-        completedOn: safeString(data.completed_on),
-        propertyAddress: safeString(data.property_address),
-        city: safeString(data.city),
-        state: safeString(data.state) || "WA",
-        zip: safeString(data.zip),
-        unit: safeString(data.unit),
-        tenantNames: safeString(data.tenant_names),
-        tenantPhones: safeString(data.tenant_phones),
-        tenantEmails: safeString(data.tenant_emails),
-        tenantAvailability: safeString(data.tenant_availability),
-        permissionToEnter: safeString(data.permission_to_enter),
-        accessNotes: safeString(data.access_notes),
-        pets: safeString(data.pets),
-        maintenanceLimit: safeString(data.maintenance_limit),
-        issueCategory: safeString(data.issue_category),
-        issueSubcategory: safeString(data.issue_subcategory),
-        applianceType: safeString(data.appliance_type),
-        brand: safeString(data.brand),
-        model: safeString(data.model),
-        problemDescription: safeString(data.problem_description),
-        issueDetails: safeString(data.issue_details),
-        safetyConcern: safeString(data.safety_concern),
-        vendorAssigned: safeString(data.vendor_assigned),
-        requestedAction: safeString(data.requested_action),
-      });
-
-      setClassification({
-        ...DEFAULT_CLASSIFICATION,
-        tradeCategory: safeString(data.trade_category),
-        jobType: safeString(data.job_type),
-        severity: safeString(data.severity) || "Low",
-        occupancyStatus: safeString(data.occupancy_status) || "Occupied",
-        accessComplexity: safeString(data.access_complexity) || "Easy",
-        recommendedPath: safeString(data.recommended_path) || "Diagnose only",
-        confidence: Number(data.confidence) || 0,
-      });
-
-      setPricing({
-        ...DEFAULT_PRICING,
-        pricingRuleUsed: safeString(data.pricing_rule_used),
-        serviceCall: Number(data.service_call || 0).toFixed(2),
-        labor: Number(data.labor || 0).toFixed(2),
-        materials: Number(data.materials || 0).toFixed(2),
-        disposal: Number(data.disposal || 0).toFixed(2),
-        other: Number(data.other_amount || 0).toFixed(2),
-        taxRate: Number(data.tax_rate || 10.5).toFixed(2),
-        taxAmount: Number(data.tax_amount || 0).toFixed(2),
-        total: Number(data.total_amount || 0).toFixed(2),
-        pricingNote: safeString(data.pricing_note),
-        approvalNeeded: Boolean(data.approval_needed),
-        manualReviewRequired: Boolean(data.manual_review_required),
-      });
-
-      setOutputs({
-        vendorInstructions: safeString(data.vendor_instructions),
-        ownerUpdate: safeString(data.owner_update),
-        internalSummary: safeString(data.internal_summary),
-      });
-
-      setInternalReview({
-        assignedTo: safeString(data.assigned_to),
-        status: safeString(data.record_status) || "New",
-        followUpDate: formatDateForInput(safeString(data.follow_up_date)),
-        internalNotes: safeString(data.internal_notes),
-      });
-
-      setStatusMessage("Saved record loaded.");
-    } catch (error: unknown) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Could not load record.";
-      setStatusMessage(message);
+  function loadSavedRecord() {
+    const record = savedRecords.find((item) => item.id === selectedRecordId);
+    if (!record) {
+      setStatusMessage("Select a saved record to load.");
+      return;
     }
+    setWorkOrder({ ...DEFAULT_WORK_ORDER, ...record.workOrder });
+    setBuilderLines(record.builderLines || []);
+    setTaxRate(record.taxRate || "10.50");
+    setTaxName(record.taxName || "");
+    setStatusMessage("Saved pricing record loaded.");
   }
 
-  async function handleDeleteRecord(recordId: string) {
-    try {
-      const { error } = await supabase.from("work_order_pricing_records").delete().eq("id", recordId);
-      if (error) throw error;
-      setSavedRecords((prev) => prev.filter((record) => record.id !== recordId));
-      setStatusMessage("Record deleted.");
-    } catch (error: unknown) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Delete failed.";
-      setStatusMessage(message);
+  function deleteSavedRecord() {
+    if (!selectedRecordId) {
+      setStatusMessage("Select a saved record to delete.");
+      return;
     }
+    const next = savedRecords.filter(
+      (record) => record.id !== selectedRecordId,
+    );
+    setSavedRecords(next);
+    localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(next));
+    setSelectedRecordId(next[0]?.id || "");
+    setStatusMessage("Saved pricing record deleted.");
+  }
+
+  function clearBuilder() {
+    setBuilderLines([]);
+    setStatusMessage("Pricing builder cleared.");
+  }
+
+  function clearWorkOrder() {
+    setWorkOrder({ ...DEFAULT_WORK_ORDER, createdOn: today() });
+    setBuilderLines([]);
+    setStatusMessage("Pricing page reset.");
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="bg-slate-900 px-6 py-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-300">5Tools</p>
-                <h1 className="mt-1 text-2xl font-semibold text-white">Work Order Pricing Assistant</h1>
-                <p className="mt-2 text-sm text-slate-300">
-                  Upload a work order PDF, extract details, generate pricing guidance, and create vendor / owner outputs.
-                </p>
-              </div>
+    <main className="min-h-screen bg-[#ece3d4] text-[#1b1b1b] print:bg-white">
+      <style jsx global>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
+        @media print {
+          @page { margin: 0.45in; }
+          body { background: white !important; color: #111111 !important; }
+          main { background: white !important; }
+          .no-print, .screen-section { display: none !important; }
+          .print-only { display: block !important; }
+          .estimate-print-report { color: #111111 !important; font-size: 11px; }
+          .estimate-print-report table { width: 100%; border-collapse: collapse; }
+          .estimate-print-report th,
+          .estimate-print-report td { border-bottom: 1px solid #cfc2b2; padding: 7px 6px; vertical-align: top; }
+          .estimate-print-report th { background: #3f2a1b; color: white; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+          .estimate-print-report .page-break { page-break-before: always; break-before: page; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+        }
+      `}</style>
 
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
-              >
-                Back to Dashboard
-              </Link>
+      <header className="no-print border-b border-[#a98a67] bg-[#f7f1e7] shadow-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-6">
+          <div>
+            <h1 className="text-4xl font-black tracking-tight text-[#2e1f12]">5Tools</h1>
+            <p className="mt-1 text-xs font-bold uppercase tracking-[0.35em] text-[#9c6b2f]">
+              Repair & Maintenance Workspace
+            </p>
+          </div>
+          <div className="hidden gap-8 text-right text-xs font-bold text-[#5a4633] md:flex">
+            <div>
+              <p>253.584.8200</p>
+              <p className="uppercase text-[#8a7a68]">Call Us</p>
+            </div>
+            <div>
+              <p>Tacoma, Washington</p>
+              <p className="uppercase text-[#8a7a68]">Service Area</p>
             </div>
           </div>
+        </div>
+        <nav className="border-t border-[#8b6b47] bg-[#4d3624] shadow-inner">
+          <div className="mx-auto flex max-w-7xl flex-wrap px-8">
+            {[
+              { label: "Home", href: "/" },
+              { label: "Work Orders", href: "/work-order-engine" },
+              { label: "Pricing Notebook", href: "/work-order-pricing" },
+              { label: "Service Ticket", href: "/service-ticket" },
+              { label: "Reports", href: "/inspections" },
+              { label: "Scheduler", href: "/project-scheduler" },
+              { label: "Projects", href: "/project-tracker" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={
+                  link.href === "/work-order-pricing"
+                    ? "border-b-4 border-[#d4a66a] bg-[#6b4a31] px-5 py-4 text-sm font-bold uppercase tracking-wide text-[#f5ede2]"
+                    : "border-b-4 border-transparent px-5 py-4 text-sm font-bold uppercase tracking-wide text-[#f5ede2] transition hover:border-[#d4a66a] hover:bg-[#6b4a31]"
+                }
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </header>
 
-          <div className="border-t border-slate-200 bg-slate-50 px-6 py-3">
-            <p className="text-sm text-slate-700">{statusMessage || "Ready."}</p>
+      <section className="screen-section border-b border-[#b89b79] bg-[linear-gradient(90deg,#8b5e3c_0%,#9b6b45_18%,#7c5235_36%,#a7794f_54%,#815638_72%,#6d482d_100%)]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-8 py-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="border border-[#d4b08a] bg-[rgba(35,20,10,0.78)] p-6 shadow-xl backdrop-blur-sm">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-[#d4a66a]">Pricing Workstation</p>
+            <h2 className="mt-2 text-3xl font-black text-[#fff8f0]">Work Order Pricing</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#f3e8d8]">
+              Notebook tabs, preset charge groups, editable estimate builder, saved records, and return pricing back to the Service Ticket.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/work-order-engine" className="border border-[#d4b08a] bg-[#f8f1e7] px-4 py-2.5 text-sm font-black uppercase tracking-wide text-[#2f1f14] shadow-lg transition hover:bg-[#efe3d2]">
+              Back to Work Orders
+            </Link>
+            <button type="button" onClick={importPushedWorkOrder} className="border border-[#d4b08a] bg-[#f8f1e7] px-4 py-2.5 text-sm font-black uppercase tracking-wide text-[#2f1f14] shadow-lg transition hover:bg-[#efe3d2]">
+              Load Pushed Work Order
+            </button>
+            <button type="button" onClick={() => window.print()} className="bg-[#c58a3b] px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white shadow-lg transition hover:bg-[#ad742b]">
+              Print / PDF
+            </button>
+            <button type="button" onClick={clearWorkOrder} className="border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-red-700 shadow-lg transition hover:bg-red-100">
+              Reset
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className="estimate-print-report print-only hidden p-8">
+        <div className="mb-6 border-b-4 border-[#3f2a1b] pb-4">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <div className="text-3xl font-black tracking-tight">5 Tools</div>
+              <div className="mt-1 text-sm font-bold uppercase tracking-[0.18em] text-[#8a6f22]">Work Estimate</div>
+              <div className="mt-3 text-xs leading-5 text-[#5b564c]">
+                <div>Phone: (253) 592-3161</div>
+                <div>15 Oregon Ave #110, Tacoma, WA 98409</div>
+                <div>License # 5TOOLTR833KZ</div>
+              </div>
+            </div>
+            <div className="min-w-[260px] border border-[#c9ab86] bg-[#fffdf7] p-4 text-sm">
+              <div className="flex justify-between gap-4 border-b border-[#c9ab86] pb-2"><span className="font-bold">Estimate Date</span><span>{new Date().toLocaleDateString()}</span></div>
+              <div className="mt-2 flex justify-between gap-4"><span className="font-bold">Work Order</span><span>{workOrder.workOrderNumber || "--"}</span></div>
+              <div className="mt-2 flex justify-between gap-4"><span className="font-bold">Total</span><span>{money(totals.grand)}</span></div>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="mb-6 grid grid-cols-3 gap-5 text-sm">
+          <div className="border border-[#c9ab86] p-4">
+            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#8a6f22]">Customer</div>
+            <div className="font-bold">Customer / Owner</div>
+            <div className="mt-1 text-[#5b564c]">{workOrder.city || ""}{workOrder.state ? `, ${workOrder.state}` : ""} {workOrder.zip || ""}</div>
+          </div>
+          <div className="border border-[#c9ab86] p-4">
+            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#8a6f22]">Project</div>
+            <div className="font-bold">{workOrder.issueCategory || "Work Order Pricing"}</div>
+            <div className="mt-1 text-[#5b564c]">Project #: {workOrder.workOrderNumber || "--"}</div>
+            <div className="mt-1 text-[#5b564c]">{workOrder.propertyAddress || "--"}</div>
+          </div>
+          <div className="border border-[#c9ab86] p-4">
+            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#8a6f22]">Service Address</div>
+            <div className="font-bold">{workOrder.propertyAddress || "--"}</div>
+            {workOrder.unit ? <div className="mt-1 text-[#5b564c]">Unit {workOrder.unit}</div> : null}
+            <div className="mt-1 text-[#5b564c]">{workOrder.city || ""}{workOrder.state ? `, ${workOrder.state}` : ""} {workOrder.zip || ""}</div>
+          </div>
+        </div>
+
+        {(workOrder.problemDescription || workOrder.accessNotes) ? (
+          <div className="mb-6 border border-[#c9ab86] p-4 text-sm">
+            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#8a6f22]">Scope / Notes</div>
+            {workOrder.problemDescription ? <div className="whitespace-pre-wrap"><span className="font-bold">Work Requested:</span> {workOrder.problemDescription}</div> : null}
+            {workOrder.accessNotes ? <div className="mt-2 whitespace-pre-wrap"><span className="font-bold">Access Notes:</span> {workOrder.accessNotes}</div> : null}
+          </div>
+        ) : null}
+
+        <div className="mb-6">
+          <div className="mb-3 text-xl font-black">Estimate Line Items</div>
+          <table className="text-sm">
+            <thead>
+              <tr><th>Item</th><th className="text-right">Qty</th><th className="text-right">Cost / Unit</th><th className="text-right">Total</th></tr>
+            </thead>
+            <tbody>
+              {builderLines.length === 0 ? (
+                <tr><td colSpan={4} className="py-6 text-center text-[#5b564c]">No pricing line items have been added.</td></tr>
+              ) : (
+                builderLines.map((line) => (
+                  <tr key={line.id}>
+                    <td><div className="font-semibold">{line.description || "Line Item"}</div><div className="mt-1 text-xs text-[#5b564c]">{line.type}{line.taxable ? " • Taxable" : ""}</div></td>
+                    <td className="text-right">{line.qty || "1"}</td>
+                    <td className="text-right">{money(asNumber(line.unitPrice))}</td>
+                    <td className="text-right font-bold">{money(lineTotal(line))}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="ml-auto w-[320px] border border-[#c9ab86] p-4 text-sm">
+          <div className="flex justify-between py-1"><span>Labor / Packages</span><span>{money(totals.labor)}</span></div>
+          <div className="flex justify-between py-1"><span>Materials</span><span>{money(totals.materials)}</span></div>
+          <div className="flex justify-between py-1"><span>Disposal / Trip / Other</span><span>{money(totals.disposal + totals.trip + totals.other)}</span></div>
+          <div className="flex justify-between border-t border-[#c9ab86] py-2"><span>Subtotal</span><span>{money(totals.subtotal)}</span></div>
+          <div className="flex justify-between py-1"><span>Tax ({asNumber(taxRate).toFixed(2)}%)</span><span>{money(totals.tax)}</span></div>
+          <div className="mt-2 flex justify-between border-t-4 border-[#3f2a1b] pt-3 text-lg font-black"><span>Total</span><span>{money(totals.grand)}</span></div>
+        </div>
+
+        <div className="page-break pt-8">
+          <div className="mb-6 border-b-4 border-[#3f2a1b] pb-4">
+            <div className="text-2xl font-black">Approval</div>
+            <div className="mt-1 text-sm text-[#5b564c]">Acceptance of Work Estimate</div>
+          </div>
+          <div className="mt-8 space-y-8 text-sm">
+            <div>This Work Estimate has been accepted on ______________________________ by ____________________________________________.</div>
+            <div>Signature: _______________________________________________________________________________________________</div>
+            <div>Printed Name: ____________________________________________________________________________________________</div>
+            <div>Date: ____________________________________________________________________________________________________</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="screen-section mx-auto max-w-7xl px-8 py-6">
+        <section className="mb-5 border border-[#c9ab86] bg-[#fffaf3] p-4 shadow-md">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-black text-[#2f1f14]">Status: {statusMessage}</p>
+              <p className="mt-1 text-xs font-bold text-[#5f4a39]">Shared Pricing: {sharedNotebookStatus}</p>
+              <p className="mt-1 text-xs text-[#5f4a39]">Preset pricing saves to Supabase cloud so desktop, phone, and deployed app use the same static price list. Estimate records still save locally and can return completed pricing back to Service Ticket.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="border border-[#c9ab86] bg-white p-3"><div className="text-xs font-black uppercase text-[#8a7a68]">Work Order</div><div className="mt-1 font-black">{workOrder.workOrderNumber || "--"}</div></div>
+              <div className="border border-[#c9ab86] bg-white p-3"><div className="text-xs font-black uppercase text-[#8a7a68]">Property</div><div className="mt-1 truncate font-black">{workOrder.propertyAddress || "--"}</div></div>
+              <div className="border border-[#c9ab86] bg-white p-3"><div className="text-xs font-black uppercase text-[#8a7a68]">Lines</div><div className="mt-1 font-black">{builderLines.length}</div></div>
+              <div className="border border-[#4d3624] bg-[#4d3624] p-3 text-white"><div className="text-xs font-black uppercase text-white/70">Total</div><div className="mt-1 font-black">{money(totals.grand)}</div></div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("PDF Intake", "Load a work order PDF and extract the text into editable fields.")}
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => handlePdfSelect(e.target.files?.[0] || null)}
-                  className="block w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                />
-                <button
-                  type="button"
-                  onClick={handleExtractWorkOrder}
-                  disabled={!uploadedPdf.file || isExtracting}
-                  className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isExtracting ? "Extracting..." : "Extract Work Order"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Clear
-                </button>
+            <section className="border border-[#c9ab86] bg-[#fffaf3] p-5 shadow-md">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-[#2f1f14]">Work Order Info</h2>
+                  <p className="mt-1 text-sm text-[#5f4a39]">Only the information needed for pricing and estimate output.</p>
+                </div>
               </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <InfoBox label="Loaded File" value={uploadedPdf.fileName || "--"} />
-                <InfoBox
-                  label="Parser Confidence"
-                  value={classification.confidence ? `${Math.round(classification.confidence * 100)}%` : "--"}
-                />
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Field label="Work Order #"><TextInput value={workOrder.workOrderNumber} onChange={(v) => updateWorkOrder("workOrderNumber", v)} /></Field>
+                <Field label="Status"><TextInput value={workOrder.status} onChange={(v) => updateWorkOrder("status", v)} /></Field>
+                <Field label="Created On"><TextInput type="date" value={workOrder.createdOn} onChange={(v) => updateWorkOrder("createdOn", v)} /></Field>
+                <Field label="Maintenance Limit"><TextInput value={workOrder.maintenanceLimit} onChange={(v) => updateWorkOrder("maintenanceLimit", v)} placeholder="0.00" /></Field>
+                <div className="xl:col-span-2"><Field label="Property Address"><TextInput value={workOrder.propertyAddress} onChange={(v) => updateWorkOrder("propertyAddress", v)} /></Field></div>
+                <Field label="Unit"><TextInput value={workOrder.unit} onChange={(v) => updateWorkOrder("unit", v)} /></Field>
+                <Field label="City"><TextInput value={workOrder.city} onChange={(v) => updateWorkOrder("city", v)} /></Field>
+                <Field label="State"><TextInput value={workOrder.state} onChange={(v) => updateWorkOrder("state", v)} /></Field>
+                <Field label="Zip"><TextInput value={workOrder.zip} onChange={(v) => updateWorkOrder("zip", v)} /></Field>
+                <div className="xl:col-span-2"><Field label="Issue Category"><TextInput value={workOrder.issueCategory} onChange={(v) => updateWorkOrder("issueCategory", v)} /></Field></div>
+                <div className="md:col-span-2"><Field label="Problem Description"><TextArea value={workOrder.problemDescription} onChange={(v) => updateWorkOrder("problemDescription", v)} rows={3} /></Field></div>
+                <div className="md:col-span-2"><Field label="Access Notes"><TextArea value={workOrder.accessNotes} onChange={(v) => updateWorkOrder("accessNotes", v)} rows={3} /></Field></div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Extracted Work Order Data", "Review and correct anything the PDF parser missed.")}
-              <div className="grid gap-4 md:grid-cols-2">
-                <InputField
-                  label="Work Order #"
-                  value={extractedData.workOrderNumber}
-                  onChange={(v) => updateExtractedField("workOrderNumber", v)}
-                />
-                <InputField
-                  label="Status"
-                  value={extractedData.status}
-                  onChange={(v) => updateExtractedField("status", v)}
-                />
-                <InputField
-                  label="Created On"
-                  type="date"
-                  value={extractedData.createdOn}
-                  onChange={(v) => updateExtractedField("createdOn", v)}
-                />
-                <InputField
-                  label="Maintenance Limit"
-                  value={extractedData.maintenanceLimit}
-                  onChange={(v) => updateExtractedField("maintenanceLimit", v)}
-                />
-
-                <InputField
-                  label="Property Address"
-                  value={extractedData.propertyAddress}
-                  onChange={(v) => updateExtractedField("propertyAddress", v)}
-                />
-                <InputField label="Unit" value={extractedData.unit} onChange={(v) => updateExtractedField("unit", v)} />
-                <InputField label="City" value={extractedData.city} onChange={(v) => updateExtractedField("city", v)} />
-                <InputField label="State" value={extractedData.state} onChange={(v) => updateExtractedField("state", v)} />
-                <InputField label="Zip" value={extractedData.zip} onChange={(v) => updateExtractedField("zip", v)} />
-                <InputField
-                  label="Tenant Names"
-                  value={extractedData.tenantNames}
-                  onChange={(v) => updateExtractedField("tenantNames", v)}
-                />
-                <InputField
-                  label="Tenant Phones"
-                  value={extractedData.tenantPhones}
-                  onChange={(v) => updateExtractedField("tenantPhones", v)}
-                />
-                <InputField
-                  label="Tenant Emails"
-                  value={extractedData.tenantEmails}
-                  onChange={(v) => updateExtractedField("tenantEmails", v)}
-                />
-                <InputField
-                  label="Tenant Availability"
-                  value={extractedData.tenantAvailability}
-                  onChange={(v) => updateExtractedField("tenantAvailability", v)}
-                />
-                <InputField
-                  label="Permission to Enter"
-                  value={extractedData.permissionToEnter}
-                  onChange={(v) => updateExtractedField("permissionToEnter", v)}
-                />
-                <InputField
-                  label="Access Notes"
-                  value={extractedData.accessNotes}
-                  onChange={(v) => updateExtractedField("accessNotes", v)}
-                />
-                <InputField label="Pets" value={extractedData.pets} onChange={(v) => updateExtractedField("pets", v)} />
-                <InputField
-                  label="Issue Category"
-                  value={extractedData.issueCategory}
-                  onChange={(v) => updateExtractedField("issueCategory", v)}
-                />
-                <InputField
-                  label="Issue Subcategory"
-                  value={extractedData.issueSubcategory}
-                  onChange={(v) => updateExtractedField("issueSubcategory", v)}
-                />
-                <InputField
-                  label="Appliance Type"
-                  value={extractedData.applianceType}
-                  onChange={(v) => updateExtractedField("applianceType", v)}
-                />
-                <InputField
-                  label="Brand"
-                  value={extractedData.brand}
-                  onChange={(v) => updateExtractedField("brand", v)}
-                />
-                <InputField
-                  label="Model"
-                  value={extractedData.model}
-                  onChange={(v) => updateExtractedField("model", v)}
-                />
-                <InputField
-                  label="Safety Concern"
-                  value={extractedData.safetyConcern}
-                  onChange={(v) => updateExtractedField("safetyConcern", v)}
-                />
-                <InputField
-                  label="Vendor Assigned"
-                  value={extractedData.vendorAssigned}
-                  onChange={(v) => updateExtractedField("vendorAssigned", v)}
-                />
-                <InputField
-                  label="Requested Action"
-                  value={extractedData.requestedAction}
-                  onChange={(v) => updateExtractedField("requestedAction", v)}
-                />
-              </div>
-
-              <div className="mt-4 grid gap-4">
-                <TextAreaField
-                  label="Problem Description"
-                  value={extractedData.problemDescription}
-                  onChange={(v) => updateExtractedField("problemDescription", v)}
-                />
-                <TextAreaField
-                  label="Issue Details"
-                  value={extractedData.issueDetails}
-                  onChange={(v) => updateExtractedField("issueDetails", v)}
-                />
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Job Classification", "Pricing rules use this section, so keep it operational and simple.")}
-              <div className="grid gap-4 md:grid-cols-2">
-                <SelectField
-                  label="Trade Category"
-                  value={classification.tradeCategory}
-                  onChange={(v) => updateClassificationField("tradeCategory", v)}
-                  options={[
-                    "",
-                    "Appliance",
-                    "Plumbing",
-                    "Electrical",
-                    "Carpentry",
-                    "Cleaning",
-                    "Flooring",
-                    "General Maintenance",
-                  ]}
-                />
-                <InputField
-                  label="Job Type"
-                  value={classification.jobType}
-                  onChange={(v) => updateClassificationField("jobType", v)}
-                />
-                <SelectField
-                  label="Severity"
-                  value={classification.severity}
-                  onChange={(v) => updateClassificationField("severity", v)}
-                  options={["Low", "Medium", "High"]}
-                />
-                <SelectField
-                  label="Occupancy Status"
-                  value={classification.occupancyStatus}
-                  onChange={(v) => updateClassificationField("occupancyStatus", v)}
-                  options={["Occupied", "Vacant"]}
-                />
-                <SelectField
-                  label="Access Complexity"
-                  value={classification.accessComplexity}
-                  onChange={(v) => updateClassificationField("accessComplexity", v)}
-                  options={["Easy", "Moderate", "Difficult"]}
-                />
-                <SelectField
-                  label="Recommended Path"
-                  value={classification.recommendedPath}
-                  onChange={(v) => updateClassificationField("recommendedPath", v)}
-                  options={["Diagnose only", "Repair likely", "Replace likely", "Manual review"]}
-                />
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleGeneratePricing}
-                  disabled={isGeneratingPricing}
-                  className="inline-flex items-center justify-center rounded-2xl bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500 disabled:opacity-50"
-                >
-                  {isGeneratingPricing ? "Generating..." : "Generate Pricing"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateVendorInstructions}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Generate Vendor Instructions
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateOwnerUpdate}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Generate Owner Update
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateAllOutputs}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Generate All
-                </button>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Pricing Summary", "Manual override is allowed. The app should help, not trap you.")}
-              <div className="grid gap-4 md:grid-cols-2">
-                <InputField
-                  label="Pricing Rule Used"
-                  value={pricing.pricingRuleUsed}
-                  onChange={(v) => updatePricingField("pricingRuleUsed", v)}
-                />
-                <InputField
-                  label="Service Call"
-                  value={pricing.serviceCall}
-                  onChange={(v) => updatePricingField("serviceCall", v)}
-                />
-                <InputField label="Labor" value={pricing.labor} onChange={(v) => updatePricingField("labor", v)} />
-                <InputField
-                  label="Materials"
-                  value={pricing.materials}
-                  onChange={(v) => updatePricingField("materials", v)}
-                />
-                <InputField
-                  label="Disposal"
-                  value={pricing.disposal}
-                  onChange={(v) => updatePricingField("disposal", v)}
-                />
-                <InputField label="Other" value={pricing.other} onChange={(v) => updatePricingField("other", v)} />
-                <InputField
-                  label="Tax Rate %"
-                  value={pricing.taxRate}
-                  onChange={(v) => updatePricingField("taxRate", v)}
-                />
-                <InputField
-                  label="Tax Amount"
-                  value={pricing.taxAmount}
-                  onChange={(v) => updatePricingField("taxAmount", v)}
-                />
-                <InputField label="Total" value={pricing.total} onChange={(v) => updatePricingField("total", v)} />
-              </div>
-
-              <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-                <div className="grid gap-3 md:grid-cols-4">
-                  <InfoBox label="Subtotal" value={formatCurrency(subtotal)} />
-                  <InfoBox label="Tax" value={formatCurrency(parseCurrencyInput(pricing.taxAmount))} />
-                  <InfoBox label="Total" value={formatCurrency(parseCurrencyInput(pricing.total))} />
-                  <InfoBox label="Approval Needed" value={pricing.approvalNeeded ? "Yes" : "No"} />
+            <section className="border border-[#c9ab86] bg-[#fffaf3] p-5 shadow-md">
+              <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-[#2f1f14]">Pricing Notebook</h2>
+                  <p className="mt-1 text-sm text-[#5f4a39]">Pick a top tab, then choose a subcategory and add preset charges to the builder.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search selected subcategory..." className="border border-[#c9ab86] bg-white px-3 py-2 text-sm outline-none focus:border-[#9c6b2f]" />
+                  <button type="button" onClick={addGroup} className="border border-[#b57a32] bg-white px-3 py-2 text-sm font-black text-[#2f1f14] hover:bg-[#fff8ef]">Add Subcategory</button>
+                  {activeGroup ? <button type="button" onClick={() => deleteGroup(activeGroup.id)} className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-black text-red-700 hover:bg-red-100">Delete Subcategory</button> : null}
                 </div>
               </div>
 
-              <div className="mt-4">
-                <TextAreaField
-                  label="Pricing Note"
-                  value={pricing.pricingNote}
-                  onChange={(v) => updatePricingField("pricingNote", v)}
-                />
+              <div className="mb-4 border border-[#c9ab86] bg-[#f8f1e7] p-3">
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-[#9c6b2f]">Notebook Tabs</div>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map((category) => {
+                    const count = groups.filter((group) => group.category === category).length;
+                    const active = activeCategory === category;
+                    return (
+                      <button key={category} type="button" onClick={() => setActiveCategory(category)} className={active ? "border border-[#4d3624] bg-[#4d3624] px-4 py-2 text-sm font-black text-white shadow-sm" : "border border-[#c9ab86] bg-white px-4 py-2 text-sm font-black text-[#2f1f14] shadow-sm hover:bg-[#fff8ef]"}>
+                        {category} <span className={active ? "text-white/70" : "text-[#8a7a68]"}>({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Vendor Instructions")}
-              <TextAreaField
-                label="Vendor Instructions"
-                value={outputs.vendorInstructions}
-                onChange={(v) => setOutputs((prev) => ({ ...prev, vendorInstructions: v }))}
-                rows={16}
-              />
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(outputs.vendorInstructions, "Vendor instructions")}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Copy Vendor Instructions
-                </button>
+              <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {categoryGroups.length === 0 ? (
+                  <div className="border border-dashed border-[#c9ab86] bg-white p-4 text-sm text-[#5f4a39]">No subcategories yet.</div>
+                ) : (
+                  categoryGroups.map((group) => {
+                    const count = lines.filter((line) => line.groupId === group.id).length;
+                    const active = activeGroup?.id === group.id;
+                    return (
+                      <button key={group.id} type="button" onClick={() => setActiveGroupId(group.id)} className={active ? "border border-[#b57a32] bg-[#b57a32] p-4 text-left text-white shadow-sm" : "border border-[#c9ab86] bg-white p-4 text-left text-[#2f1f14] shadow-sm hover:bg-[#fff8ef]"}>
+                        <div className="text-base font-black">{group.name}</div>
+                        <div className={active ? "mt-1 text-xs text-white/80" : "mt-1 text-xs text-[#8a7a68]"}>{count} preset charge{count === 1 ? "" : "s"}</div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
-            </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Owner Update")}
-              <TextAreaField
-                label="Owner Update"
-                value={outputs.ownerUpdate}
-                onChange={(v) => setOutputs((prev) => ({ ...prev, ownerUpdate: v }))}
-                rows={12}
-              />
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(outputs.ownerUpdate, "Owner update")}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Copy Owner Update
-                </button>
+              {activeGroup ? (
+                <div className="mb-4 border border-[#c9ab86] bg-[#fff8ef] p-4">
+                  <div className="grid gap-3 md:grid-cols-[1fr_2fr_auto] md:items-end">
+                    <Field label="Selected Subcategory"><TextInput value={activeGroup.name} onChange={(v) => updateGroup(activeGroup.id, "name", v)} /></Field>
+                    <Field label="Subcategory Notes"><TextInput value={activeGroup.notes} onChange={(v) => updateGroup(activeGroup.id, "notes", v)} /></Field>
+                    <button type="button" onClick={addNotebookLine} className="bg-[#4d3624] px-4 py-2.5 text-sm font-black text-white hover:bg-[#6b4a31]">Add Price Row</button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="overflow-x-auto border border-[#c9ab86] bg-white">
+                <table className="min-w-[980px] divide-y divide-[#c9ab86] text-sm">
+                  <thead className="bg-[#4d3624] text-left text-xs uppercase tracking-wide text-white">
+                    <tr>
+                      <th className="w-[70px] px-3 py-3 text-center">Use</th>
+                      <th className="px-3 py-3">Description</th>
+                      <th className="w-[170px] px-3 py-3">Type</th>
+                      <th className="w-[140px] px-3 py-3">Price</th>
+                      <th className="w-[80px] px-3 py-3 text-center">Tax</th>
+                      <th className="w-[120px] px-3 py-3 text-right">Add</th>
+                      <th className="w-[90px] px-3 py-3 text-right">Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#c9ab86] bg-white">
+                    {visibleLines.length === 0 ? (
+                      <tr><td colSpan={7} className="px-3 py-8 text-center text-[#5f4a39]">No preset charges in this subcategory yet.</td></tr>
+                    ) : (
+                      visibleLines.map((line) => {
+                        const selected = selectedIds.has(line.id);
+                        return (
+                          <tr key={line.id} className={selected ? "bg-[#fff0d7]" : "bg-white"}>
+                            <td className="px-3 py-3 text-center"><input type="checkbox" checked={selected} onChange={() => toggleBuilderLine(line)} className="h-5 w-5 accent-[#b57a32]" /></td>
+                            <td className="min-w-[320px] px-3 py-3">
+                              <TextInput value={line.description} onChange={(v) => updateLine(line.id, "description", v)} />
+                              <input value={line.notes} onChange={(e) => updateLine(line.id, "notes", e.target.value)} placeholder="Notes" className="mt-2 w-full border border-[#c9ab86] bg-[#fff8ef] px-3 py-2 text-xs text-[#5f4a39] outline-none focus:border-[#9c6b2f]" />
+                            </td>
+                            <td className="px-3 py-3"><select value={line.type} onChange={(e) => updateLine(line.id, "type", e.target.value as PriceType)} className="w-full border border-[#c9ab86] bg-[#fff8ef] px-3 py-2.5 text-sm outline-none">{PRICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
+                            <td className="px-3 py-3"><input inputMode="decimal" value={line.price} onChange={(e) => updateLine(line.id, "price", e.target.value)} onBlur={() => updateLine(line.id, "price", asNumber(line.price).toFixed(2))} className="w-full border border-[#c9ab86] bg-[#fff8ef] px-3 py-2.5 text-sm outline-none" /></td>
+                            <td className="px-3 py-3 text-center"><input type="checkbox" checked={line.taxable} onChange={(e) => updateLine(line.id, "taxable", e.target.checked)} className="h-5 w-5 accent-[#b57a32]" /></td>
+                            <td className="px-3 py-3 text-right"><button type="button" onClick={() => toggleBuilderLine(line)} className={selected ? "border border-red-300 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100" : "bg-[#b57a32] px-3 py-2 text-xs font-black text-white hover:bg-[#9b6427]"}>{selected ? "Remove" : "Add"}</button></td>
+                            <td className="px-3 py-3 text-right"><button type="button" onClick={() => deleteNotebookLine(line.id)} className="border border-[#c9ab86] bg-white px-3 py-2 text-xs font-black text-[#5f4a39] hover:bg-[#fff8ef]">Delete</button></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>
 
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Internal Review")}
-              <div className="grid gap-4">
-                <InputField
-                  label="Assigned To"
-                  value={internalReview.assignedTo}
-                  onChange={(v) => updateInternalReviewField("assignedTo", v)}
-                />
-                <SelectField
-                  label="Status"
-                  value={internalReview.status}
-                  onChange={(v) => updateInternalReviewField("status", v)}
-                  options={["New", "Pending", "Waiting on Vendor", "Waiting on Approval", "Completed"]}
-                />
-                <InputField
-                  label="Follow-Up Date"
-                  type="date"
-                  value={internalReview.followUpDate}
-                  onChange={(v) => updateInternalReviewField("followUpDate", v)}
-                />
-                <TextAreaField
-                  label="Internal Notes"
-                  value={internalReview.internalNotes}
-                  onChange={(v) => updateInternalReviewField("internalNotes", v)}
-                  rows={6}
-                />
-                <TextAreaField
-                  label="Internal Summary"
-                  value={outputs.internalSummary}
-                  onChange={(v) => setOutputs((prev) => ({ ...prev, internalSummary: v }))}
-                  rows={8}
-                />
+          <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
+            <section className="border border-[#c9ab86] bg-[#fffaf3] p-5 shadow-md">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-black text-[#2f1f14]">Estimate Builder</h2>
+                  <p className="mt-1 text-sm text-[#5f4a39]">Selected items for this work order.</p>
+                </div>
+                <button type="button" onClick={addBlankBuilderLine} className="bg-[#4d3624] px-3 py-2 text-xs font-black text-white hover:bg-[#6b4a31]">Custom</button>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveRecord}
-                  disabled={isSaving}
-                  className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {isSaving ? "Saving..." : "Save Record"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLoadSavedRecords}
-                  disabled={isLoadingRecords}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  {isLoadingRecords ? "Loading..." : "Load Saved Records"}
-                </button>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Saved Records")}
-              <div className="space-y-3">
-                {savedRecords.length === 0 ? (
-                  <p className="text-sm text-slate-500">No saved records loaded.</p>
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                {builderLines.length === 0 ? (
+                  <div className="border border-dashed border-[#c9ab86] bg-white p-4 text-center text-sm text-[#5f4a39]">No line items yet. Use Add from the notebook.</div>
                 ) : (
-                  savedRecords.map((record) => (
-                    <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {record.work_order_number || "No Work Order #"} — {record.property_address || "No address"}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {record.issue_category || "No category"} / {record.job_type || "No job type"}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Total: {record.total_amount != null ? formatCurrency(Number(record.total_amount)) : "--"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {record.created_at ? new Date(record.created_at).toLocaleString() : "--"}
-                      </p>
-
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleLoadSingleRecord(record.id)}
-                          className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
-                        >
-                          Load
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRecord(record.id)}
-                          className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
+                  builderLines.map((line) => (
+                    <div key={line.id} className="border border-[#c9ab86] bg-white p-3 shadow-sm">
+                      <TextInput value={line.description} onChange={(v) => updateBuilderLine(line.id, "description", v)} />
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <select value={line.type} onChange={(e) => updateBuilderLine(line.id, "type", e.target.value as PriceType)} className="w-full border border-[#c9ab86] bg-[#fff8ef] px-2 py-2 text-xs outline-none">{PRICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+                        <label className="flex items-center justify-center gap-2 border border-[#c9ab86] bg-[#fff8ef] px-2 py-2 text-xs font-bold"><input type="checkbox" checked={line.taxable} onChange={(e) => updateBuilderLine(line.id, "taxable", e.target.checked)} className="accent-[#b57a32]" />Tax</label>
                       </div>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        <input value={line.qty} onChange={(e) => updateBuilderLine(line.id, "qty", e.target.value)} className="border border-[#c9ab86] bg-[#fff8ef] px-2 py-2 text-xs outline-none" placeholder="Qty" />
+                        <input value={line.unitPrice} onChange={(e) => updateBuilderLine(line.id, "unitPrice", e.target.value)} className="border border-[#c9ab86] bg-[#fff8ef] px-2 py-2 text-xs outline-none" placeholder="Unit" />
+                        <div className="border border-[#4d3624] bg-[#4d3624] px-2 py-2 text-right text-xs font-black text-white">{money(lineTotal(line))}</div>
+                      </div>
+                      <button type="button" onClick={() => removeBuilderLine(line.id)} className="mt-2 w-full border border-red-300 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100">Remove</button>
                     </div>
                   ))
                 )}
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {sectionCard("Raw PDF Text")}
-              <textarea
-                value={rawPdfText}
-                onChange={(e) => setRawPdfText(e.target.value)}
-                rows={18}
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none ring-0 transition focus:border-sky-400"
-              />
+            <section className="border border-[#c9ab86] bg-[#fffaf3] p-5 shadow-md">
+              <h2 className="text-xl font-black text-[#2f1f14]">Totals</h2>
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span>Labor / Packages</span><strong>{money(totals.labor)}</strong></div>
+                <div className="flex justify-between"><span>Materials</span><strong>{money(totals.materials)}</strong></div>
+                <div className="flex justify-between"><span>Disposal</span><strong>{money(totals.disposal)}</strong></div>
+                <div className="flex justify-between"><span>Trip Fee</span><strong>{money(totals.trip)}</strong></div>
+                <div className="flex justify-between"><span>Other</span><strong>{money(totals.other)}</strong></div>
+                <div className="flex justify-between border-t border-[#c9ab86] pt-2"><span>Subtotal</span><strong>{money(totals.subtotal)}</strong></div>
+                <div className="rounded-xl border border-[#c9ab86] bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wide text-[#5f4a39]">
+                    <span>Tax Area</span>
+                    {findTaxRateByCity(workOrder.city) ? (
+                      <span className="rounded bg-[#efe3d2] px-2 py-1 text-[10px] text-[#4d3624]">
+                        Auto matched from city
+                      </span>
+                    ) : null}
+                  </div>
+                  <select
+                    value={taxName}
+                    onChange={(e) => {
+                      const selected = TAX_RATE_OPTIONS.find((item) => item.name === e.target.value);
+                      setTaxName(e.target.value);
+                      if (selected) setTaxRate(selected.rate);
+                    }}
+                    className="w-full rounded-lg border border-[#c9ab86] bg-[#fff8ef] px-3 py-2 text-sm font-bold text-[#2f1f14] outline-none focus:border-[#b57a32]"
+                  >
+                    <option value="">Select tax area</option>
+                    {TAX_RATE_OPTIONS.map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.name} — {asNumber(item.rate).toFixed(2)}%
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-2 grid grid-cols-[1fr_120px] items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#5f4a39]">Editable Rate %</span>
+                    <input
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(e.target.value)}
+                      onBlur={() => setTaxRate(asNumber(taxRate).toFixed(2))}
+                      className="rounded-lg border border-[#c9ab86] bg-[#fff8ef] px-2 py-2 text-right font-bold outline-none focus:border-[#b57a32]"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between"><span>Tax{taxName ? ` - ${taxName}` : ""}</span><strong>{money(totals.tax)}</strong></div>
+                <div className="mt-3 flex justify-between border-t-4 border-[#4d3624] pt-3 text-lg"><span className="font-black">Grand Total</span><strong>{money(totals.grand)}</strong></div>
+              </div>
             </section>
-          </div>
+
+            <section className="border border-[#c9ab86] bg-[#fffaf3] p-5 shadow-md">
+              <h2 className="text-xl font-black text-[#2f1f14]">Saved Records</h2>
+              <div className="mt-3 space-y-3">
+                <Field label="Saved Pricing Records">
+                  <select value={selectedRecordId} onChange={(e) => setSelectedRecordId(e.target.value)} className="w-full border border-[#c9ab86] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#9c6b2f]">
+                    <option value="">Select saved record</option>
+                    {savedRecords.map((record) => (
+                      <option key={record.id} value={record.id}>{record.workOrder.propertyAddress || "No address"}{record.workOrder.unit ? ` #${record.workOrder.unit}` : ""} — {record.workOrder.workOrderNumber || "No WO #"} — {new Date(record.savedAt).toLocaleString()}</option>
+                    ))}
+                  </select>
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={savePricingRecord} className="bg-[#b57a32] px-3 py-2 text-sm font-black text-white hover:bg-[#9b6427]">Save</button>
+                  <button type="button" onClick={loadSavedRecord} className="border border-[#b57a32] bg-white px-3 py-2 text-sm font-black text-[#2f1f14] hover:bg-[#fff8ef]">Load</button>
+                  <button type="button" onClick={deleteSavedRecord} className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-black text-red-700 hover:bg-red-100">Delete</button>
+                  <button type="button" onClick={() => window.print()} className="border border-[#4d3624] bg-[#4d3624] px-3 py-2 text-sm font-black text-white hover:bg-[#6b4a31]">Print</button>
+                </div>
+              </div>
+            </section>
+          </aside>
         </div>
       </div>
+
+      <footer className="no-print mt-8 border-t border-[#8b6b47] bg-[#3f2a1b] px-8 py-6 text-center text-xs leading-6 text-[#f1e6d8]">
+        5 Tools supports maintenance workflow, work order pricing, scheduling, repair documentation, inventory tracking, and field operations.
+      </footer>
     </main>
   );
+}async function supabaseRequest<T>(path: string, options: RequestInit = {}) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Missing Supabase environment variables.");
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Supabase request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) return null as T;
+  return (await response.json()) as T;
 }
 
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value || "--"}</p>
-    </div>
+async function loadSharedNotebookFromCloud() {
+  const data = await supabaseRequest<SharedNotebookRecord[]>(
+    `${SHARED_NOTEBOOK_TABLE}?id=eq.${SHARED_NOTEBOOK_ID}&select=*`,
+  );
+  return data?.[0] || null;
+}
+
+async function saveSharedNotebookToCloud(
+  groups: NotebookGroup[],
+  lines: NotebookLine[],
+) {
+  return supabaseRequest<SharedNotebookRecord[]>(
+    `${SHARED_NOTEBOOK_TABLE}?on_conflict=id`,
+    {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({
+        id: SHARED_NOTEBOOK_ID,
+        groups_json: groups,
+        lines_json: lines,
+        updated_at: new Date().toISOString(),
+      }),
+    },
   );
 }
 
-function InputField({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <input
-        type={type}
-        value={type === "date" ? formatDateForInput(value) : value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400"
-      />
-    </label>
-  );
-}
 
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option || "Select"}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function TextAreaField({
-  label,
-  value,
-  onChange,
-  rows = 5,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <textarea
-        value={value}
-        rows={rows}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400"
-      />
-    </label>
-  );
-}

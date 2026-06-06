@@ -149,7 +149,7 @@ function statusBadgeClasses(status: Status) {
       return "bg-amber-100 text-amber-700";
     case "Open":
     default:
-      return "bg-slate-100 text-slate-700";
+      return "bg-[#fbfaf7] text-[#111111]";
   }
 }
 
@@ -743,7 +743,7 @@ export default function PunchListPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="min-h-screen bg-[#eee9df] text-[#111111]">
       <style jsx global>{`
         @media print {
           .no-print {
@@ -766,17 +766,17 @@ export default function PunchListPage() {
         }
       `}</style>
 
-      <div className="no-print border-b border-slate-200 bg-white">
+      <div className="no-print border-b border-[#d8d2c4] bg-[#f7f4ed]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <div className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7c7468]">
                 5 Tools
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              <h1 className="text-3xl font-bold tracking-tight text-[#111111]">
                 5 Tools Punch List
               </h1>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-[#3b3324]">
                 Property-based punch board with cloud save, card editor, photos, filters, and print report.
               </p>
             </div>
@@ -784,7 +784,7 @@ export default function PunchListPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/"
-                className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="inline-flex items-center rounded-xl border border-[#d8d2c4] bg-white px-4 py-2 text-sm font-semibold text-[#111111] shadow-sm transition hover:bg-[#fbfaf7]"
               >
                 Back to Dashboard
               </Link>
@@ -792,7 +792,7 @@ export default function PunchListPage() {
               <button
                 type="button"
                 onClick={addBlankItem}
-                className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                className="inline-flex items-center rounded-xl bg-[#c9a227] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#b38f1f]"
               >
                 Add Card
               </button>
@@ -800,7 +800,7 @@ export default function PunchListPage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600"
+                className="inline-flex items-center rounded-xl bg-[#111111] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3b3324]"
               >
                 Print Report
               </button>
@@ -808,22 +808,22 @@ export default function PunchListPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#7c7468]">
                 Open
               </div>
               <div className="mt-1 text-3xl font-bold">{counts.open}</div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#7c7468]">
                 In Progress
               </div>
               <div className="mt-1 text-3xl font-bold">{counts.inProgress}</div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#7c7468]">
                 Done
               </div>
               <div className="mt-1 text-3xl font-bold">{counts.done}</div>
@@ -841,74 +841,74 @@ export default function PunchListPage() {
 
       <div className="no-print mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {statusMessage ? (
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <div className="mb-6 rounded-2xl border border-[#d8d2c4] bg-white px-4 py-3 text-sm text-[#111111] shadow-sm">
             {statusMessage}
           </div>
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Project Info</h2>
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#111111]">Project Info</h2>
 
               <div className="mt-4 space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-sm font-medium text-[#111111]">
                     Project Name
                   </label>
                   <input
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                     placeholder="Remodel Punch List"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-sm font-medium text-[#111111]">
                     Property Name
                   </label>
                   <input
                     value={propertyName}
                     onChange={(e) => setPropertyName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                     placeholder="Example: Oak Street Remodel"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-sm font-medium text-[#111111]">
                     Property Address
                   </label>
                   <input
                     value={propertyAddress}
                     onChange={(e) => setPropertyAddress(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                     placeholder="123 Main St Tacoma, WA"
                   />
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                    <label className="mb-1 block text-sm font-medium text-[#111111]">
                       Walk Date
                     </label>
                     <input
                       type="date"
                       value={walkDate}
                       onChange={(e) => setWalkDate(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                    <label className="mb-1 block text-sm font-medium text-[#111111]">
                       Walked By
                     </label>
                     <input
                       value={walkedBy}
                       onChange={(e) => setWalkedBy(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       placeholder="Inspector / PM"
                     />
                   </div>
@@ -916,14 +916,14 @@ export default function PunchListPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">Cloud Save</h2>
+                <h2 className="text-lg font-semibold text-[#111111]">Cloud Save</h2>
                 <button
                   type="button"
                   onClick={refreshCloudRecords}
                   disabled={isRefreshingCloud}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-xl border border-[#d8d2c4] bg-white px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#fbfaf7] disabled:opacity-50"
                 >
                   {isRefreshingCloud ? "Refreshing..." : "Refresh"}
                 </button>
@@ -931,13 +931,13 @@ export default function PunchListPage() {
 
               <div className="mt-4 space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-sm font-medium text-[#111111]">
                     Saved Cloud Records
                   </label>
                   <select
                     value={selectedCloudId}
                     onChange={(e) => setSelectedCloudId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="">New record / no selection</option>
                     {cloudRecords.map((record) => (
@@ -953,7 +953,7 @@ export default function PunchListPage() {
                     type="button"
                     onClick={saveToCloud}
                     disabled={isSavingCloud}
-                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                    className="rounded-xl bg-[#c9a227] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b38f1f] disabled:opacity-50"
                   >
                     {isSavingCloud
                       ? "Saving..."
@@ -967,7 +967,7 @@ export default function PunchListPage() {
                       type="button"
                       onClick={loadFromCloud}
                       disabled={isLoadingCloud}
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                      className="rounded-xl border border-[#d8d2c4] bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#fbfaf7] disabled:opacity-50"
                     >
                       {isLoadingCloud ? "Loading..." : "Load Selected"}
                     </button>
@@ -975,7 +975,7 @@ export default function PunchListPage() {
                     <button
                       type="button"
                       onClick={createNewCloudRecord}
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      className="rounded-xl border border-[#d8d2c4] bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#fbfaf7]"
                     >
                       New Record
                     </button>
@@ -991,15 +991,15 @@ export default function PunchListPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                <div className="rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] p-3 text-xs text-[#3b3324]">
                   Save records by property, then load the correct punch list later without depending only on browser local storage.
                 </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Quick Add</h2>
-              <p className="mt-1 text-sm text-slate-600">
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#111111]">Quick Add</h2>
+              <p className="mt-1 text-sm text-[#3b3324]">
                 Just type the issue and hit Enter. Fill in the details after.
               </p>
 
@@ -1013,27 +1013,27 @@ export default function PunchListPage() {
                       addQuickItem();
                     }
                   }}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="w-full rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   placeholder="Add issue… example: touch up paint at kitchen soffit"
                 />
                 <button
                   type="button"
                   onClick={addQuickItem}
-                  className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="rounded-2xl bg-[#c9a227] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#b38f1f]"
                 >
                   Add
                 </button>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Filters</h2>
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#111111]">Filters</h2>
 
               <div className="mt-4 space-y-3">
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   placeholder="Search notes, area, trade, label, assigned..."
                 />
 
@@ -1041,7 +1041,7 @@ export default function PunchListPage() {
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="All">All Status</option>
                     {STATUS_OPTIONS.map((status) => (
@@ -1054,7 +1054,7 @@ export default function PunchListPage() {
                   <select
                     value={filterArea}
                     onChange={(e) => setFilterArea(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="All">All Areas</option>
                     {areas.map((area) => (
@@ -1067,7 +1067,7 @@ export default function PunchListPage() {
                   <select
                     value={filterTrade}
                     onChange={(e) => setFilterTrade(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="All">All Trades</option>
                     {trades.map((trade) => (
@@ -1080,7 +1080,7 @@ export default function PunchListPage() {
                   <select
                     value={filterLabel}
                     onChange={(e) => setFilterLabel(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="All">All Labels</option>
                     {labels.map((label) => (
@@ -1092,7 +1092,7 @@ export default function PunchListPage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <label className="inline-flex items-center gap-2 rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2 text-sm text-[#111111]">
                     <input
                       type="checkbox"
                       checked={showDone}
@@ -1105,7 +1105,7 @@ export default function PunchListPage() {
                   <select
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as "priority" | "created" | "due")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                   >
                     <option value="priority">Sort by priority</option>
                     <option value="created">Sort by newest</option>
@@ -1115,14 +1115,14 @@ export default function PunchListPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#111111]">Actions</h2>
 
               <div className="mt-4 grid gap-2">
                 <button
                   type="button"
                   onClick={exportJson}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="rounded-xl border border-[#d8d2c4] bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#fbfaf7]"
                 >
                   Export JSON Backup
                 </button>
@@ -1139,11 +1139,11 @@ export default function PunchListPage() {
           </div>
 
           <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Punch Board</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-lg font-semibold text-[#111111]">Punch Board</h2>
+                  <p className="text-sm text-[#3b3324]">
                     {filteredItems.length} visible card{filteredItems.length === 1 ? "" : "s"} • {counts.total} total
                   </p>
                 </div>
@@ -1151,14 +1151,14 @@ export default function PunchListPage() {
 
               <div className="mt-5 columns-1 gap-4 sm:columns-2 2xl:columns-3">
                 {filteredItems.length === 0 ? (
-                  <div className="break-inside-avoid rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                  <div className="break-inside-avoid rounded-2xl border border-dashed border-[#d8d2c4] bg-[#fbfaf7] p-8 text-center text-sm text-[#7c7468]">
                     No punch items match the current filters.
                   </div>
                 ) : (
                   filteredItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`mb-4 break-inside-avoid rounded-3xl border border-slate-200 border-t-4 bg-white p-4 shadow-sm transition ${
+                      className={`mb-4 break-inside-avoid rounded-3xl border border-[#d8d2c4] border-t-4 bg-white p-4 shadow-sm transition ${
                         cardAccent(item.priority)
                       } ${activeItemId === item.id ? "ring-2 ring-slate-300" : ""} ${
                         item.status === "Done" ? "opacity-75" : ""
@@ -1173,7 +1173,7 @@ export default function PunchListPage() {
                           className={`mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-sm ${
                             item.status === "Done"
                               ? "border-emerald-500 bg-emerald-500 text-white"
-                              : "border-slate-300 bg-white text-transparent"
+                              : "border-[#d8d2c4] bg-white text-transparent"
                           }`}
                           title={item.status === "Done" ? "Mark open" : "Mark done"}
                         >
@@ -1202,43 +1202,43 @@ export default function PunchListPage() {
                             </span>
 
                             {item.pinned && (
-                              <span className="inline-flex rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
+                              <span className="inline-flex rounded-full bg-[#c9a227] px-2.5 py-1 text-xs font-semibold text-white">
                                 Pinned
                               </span>
                             )}
                           </div>
 
-                          <h3 className="mt-3 text-base font-semibold text-slate-900">
+                          <h3 className="mt-3 text-base font-semibold text-[#111111]">
                             {item.title || "Untitled punch item"}
                           </h3>
 
                           {item.description && (
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#3b3324]">
                               {item.description}
                             </p>
                           )}
 
                           <div className="mt-3 flex flex-wrap gap-2 text-xs">
                             {item.area && (
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
+                              <span className="rounded-full bg-[#fbfaf7] px-2.5 py-1 text-[#111111]">
                                 {item.area}
                               </span>
                             )}
 
                             {item.trade && (
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
+                              <span className="rounded-full bg-[#fbfaf7] px-2.5 py-1 text-[#111111]">
                                 {item.trade}
                               </span>
                             )}
 
                             {item.label && (
-                              <span className="rounded-full bg-blue-100 px-2.5 py-1 text-blue-700">
+                              <span className="rounded-full bg-[#fff7db] px-2.5 py-1 text-[#8a6800]">
                                 {item.label}
                               </span>
                             )}
                           </div>
 
-                          <div className="mt-3 space-y-1 text-xs text-slate-500">
+                          <div className="mt-3 space-y-1 text-xs text-[#7c7468]">
                             {item.assignedTo && <div>Assigned: {item.assignedTo}</div>}
                             {item.dueDate && <div>Due: {prettyDate(item.dueDate)}</div>}
                             {item.photos.length > 0 && <div>{item.photos.length} photo(s)</div>}
@@ -1249,7 +1249,7 @@ export default function PunchListPage() {
                           <button
                             type="button"
                             onClick={() => setItemValue(item.id, "pinned", !item.pinned)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                            className="rounded-lg border border-[#d8d2c4] bg-white px-2 py-1 text-xs font-medium text-[#3b3324] hover:bg-[#fbfaf7]"
                             title="Pin note"
                           >
                             {item.pinned ? "Unpin" : "Pin"}
@@ -1258,7 +1258,7 @@ export default function PunchListPage() {
                           <button
                             type="button"
                             onClick={() => duplicateItem(item.id)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                            className="rounded-lg border border-[#d8d2c4] bg-white px-2 py-1 text-xs font-medium text-[#3b3324] hover:bg-[#fbfaf7]"
                           >
                             Copy
                           </button>
@@ -1278,7 +1278,7 @@ export default function PunchListPage() {
                           {item.photos.slice(0, 4).map((photo, index) => (
                             <div
                               key={index}
-                              className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                              className="overflow-hidden rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7]"
                             >
                               <img
                                 src={photo}
@@ -1295,47 +1295,47 @@ export default function PunchListPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Card Editor</h2>
+            <section className="rounded-3xl border border-[#d8d2c4] bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#111111]">Card Editor</h2>
 
               {!activeItem ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                <div className="mt-4 rounded-2xl border border-dashed border-[#d8d2c4] bg-[#fbfaf7] p-8 text-center text-sm text-[#7c7468]">
                   Select a card to edit its details.
                 </div>
               ) : (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                    <label className="mb-1 block text-sm font-medium text-[#111111]">
                       Issue Title
                     </label>
                     <input
                       value={activeItem.title}
                       onChange={(e) => setItemValue(activeItem.id, "title", e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       placeholder="Example: kitchen cabinet door out of alignment"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                    <label className="mb-1 block text-sm font-medium text-[#111111]">
                       Description / Notes
                     </label>
                     <textarea
                       value={activeItem.description}
                       onChange={(e) => setItemValue(activeItem.id, "description", e.target.value)}
                       rows={4}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       placeholder="Add field notes, dimensions, finish details, correction scope, or verification notes..."
                     />
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Area</label>
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">Area</label>
                       <select
                         value={activeItem.area}
                         onChange={(e) => setItemValue(activeItem.id, "area", e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       >
                         {AREA_OPTIONS.map((area) => (
                           <option key={area} value={area}>
@@ -1346,11 +1346,11 @@ export default function PunchListPage() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Trade</label>
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">Trade</label>
                       <select
                         value={activeItem.trade}
                         onChange={(e) => setItemValue(activeItem.id, "trade", e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       >
                         {TRADE_OPTIONS.map((trade) => (
                           <option key={trade} value={trade}>
@@ -1361,13 +1361,13 @@ export default function PunchListPage() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">
                         Priority
                       </label>
                       <select
                         value={activeItem.priority}
                         onChange={(e) => setItemValue(activeItem.id, "priority", e.target.value as Priority)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       >
                         {PRIORITY_OPTIONS.map((priority) => (
                           <option key={priority} value={priority}>
@@ -1378,11 +1378,11 @@ export default function PunchListPage() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">Status</label>
                       <select
                         value={activeItem.status}
                         onChange={(e) => setItemValue(activeItem.id, "status", e.target.value as Status)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       >
                         {STATUS_OPTIONS.map((status) => (
                           <option key={status} value={status}>
@@ -1395,50 +1395,50 @@ export default function PunchListPage() {
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Label</label>
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">Label</label>
                       <input
                         value={activeItem.label}
                         onChange={(e) => setItemValue(activeItem.id, "label", e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                         placeholder="Final Walk / Electrical / Doors"
                       />
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">
                         Assigned To
                       </label>
                       <input
                         value={activeItem.assignedTo}
                         onChange={(e) => setItemValue(activeItem.id, "assignedTo", e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                         placeholder="Painter / Vendor / PM"
                       />
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                      <label className="mb-1 block text-sm font-medium text-[#111111]">
                         Due Date
                       </label>
                       <input
                         type="date"
                         value={activeItem.dueDate}
                         onChange={(e) => setItemValue(activeItem.id, "dueDate", e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        className="w-full rounded-xl border border-[#d8d2c4] bg-[#fbfaf7] px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#9b9286] focus:bg-white"
                       />
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl border border-[#d8d2c4] bg-[#fbfaf7] p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-900">Photos</h3>
-                        <p className="text-xs text-slate-600">
+                        <h3 className="text-sm font-semibold text-[#111111]">Photos</h3>
+                        <p className="text-xs text-[#3b3324]">
                           Attach field photos to the punch card. Stored in browser local save and saved in cloud with the record.
                         </p>
                       </div>
 
-                      <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
+                      <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-[#c9a227] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b38f1f]">
                         Add Photos
                         <input
                           type="file"
@@ -1455,7 +1455,7 @@ export default function PunchListPage() {
                         {activeItem.photos.map((photo, index) => (
                           <div
                             key={index}
-                            className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                            className="overflow-hidden rounded-2xl border border-[#d8d2c4] bg-white"
                           >
                             <img
                               src={photo}
@@ -1475,7 +1475,7 @@ export default function PunchListPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                      <div className="mt-4 rounded-xl border border-dashed border-[#d8d2c4] bg-white p-6 text-center text-sm text-[#7c7468]">
                         No photos attached yet.
                       </div>
                     )}
@@ -1487,9 +1487,9 @@ export default function PunchListPage() {
         </div>
       </div>
 
-      <div className="print-only px-8 py-8 text-slate-900">
-        <div className="border-b border-slate-300 pb-4">
-          <div className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+      <div className="print-only px-8 py-8 text-[#111111]">
+        <div className="border-b border-[#d8d2c4] pb-4">
+          <div className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7c7468]">
             5 Tools
           </div>
 
@@ -1517,23 +1517,23 @@ export default function PunchListPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-4 gap-3">
-          <div className="rounded-xl border border-slate-300 p-3">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Open</div>
+          <div className="rounded-xl border border-[#d8d2c4] p-3">
+            <div className="text-xs uppercase tracking-wide text-[#7c7468]">Open</div>
             <div className="mt-1 text-2xl font-bold">{counts.open}</div>
           </div>
 
-          <div className="rounded-xl border border-slate-300 p-3">
-            <div className="text-xs uppercase tracking-wide text-slate-500">In Progress</div>
+          <div className="rounded-xl border border-[#d8d2c4] p-3">
+            <div className="text-xs uppercase tracking-wide text-[#7c7468]">In Progress</div>
             <div className="mt-1 text-2xl font-bold">{counts.inProgress}</div>
           </div>
 
-          <div className="rounded-xl border border-slate-300 p-3">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Done</div>
+          <div className="rounded-xl border border-[#d8d2c4] p-3">
+            <div className="text-xs uppercase tracking-wide text-[#7c7468]">Done</div>
             <div className="mt-1 text-2xl font-bold">{counts.done}</div>
           </div>
 
-          <div className="rounded-xl border border-slate-300 p-3">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Critical Open</div>
+          <div className="rounded-xl border border-[#d8d2c4] p-3">
+            <div className="text-xs uppercase tracking-wide text-[#7c7468]">Critical Open</div>
             <div className="mt-1 text-2xl font-bold">{counts.critical}</div>
           </div>
         </div>
@@ -1543,15 +1543,15 @@ export default function PunchListPage() {
 
           <div className="mt-4 space-y-5">
             {printItems.length === 0 ? (
-              <div className="rounded-xl border border-slate-300 p-4 text-sm text-slate-600">
+              <div className="rounded-xl border border-[#d8d2c4] p-4 text-sm text-[#3b3324]">
                 No punch items entered.
               </div>
             ) : (
               printItems.map((item, index) => (
-                <div key={item.id} className="rounded-2xl border border-slate-300 p-4">
+                <div key={item.id} className="rounded-2xl border border-[#d8d2c4] p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                      <div className="text-xs uppercase tracking-wide text-[#7c7468]">
                         Item {index + 1}
                       </div>
                       <h3 className="mt-1 text-lg font-semibold">
@@ -1593,7 +1593,7 @@ export default function PunchListPage() {
                   {item.description && (
                     <div className="mt-3">
                       <div className="text-sm font-semibold">Notes</div>
-                      <div className="mt-1 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm">
+                      <div className="mt-1 whitespace-pre-wrap rounded-xl bg-[#fbfaf7] p-3 text-sm">
                         {item.description}
                       </div>
                     </div>
@@ -1606,7 +1606,7 @@ export default function PunchListPage() {
                         {item.photos.map((photo, photoIndex) => (
                           <div
                             key={photoIndex}
-                            className="overflow-hidden rounded-xl border border-slate-300"
+                            className="overflow-hidden rounded-xl border border-[#d8d2c4]"
                           >
                             <img
                               src={photo}
@@ -1626,12 +1626,12 @@ export default function PunchListPage() {
 
         <div className="mt-10 grid grid-cols-2 gap-10 text-sm">
           <div>
-            <div className="border-b border-slate-400 pb-2 font-semibold">
+            <div className="border-b border-[#9b9286] pb-2 font-semibold">
               Contractor / PM Sign-Off
             </div>
           </div>
           <div>
-            <div className="border-b border-slate-400 pb-2 font-semibold">
+            <div className="border-b border-[#9b9286] pb-2 font-semibold">
               Owner / Final Approval
             </div>
           </div>
