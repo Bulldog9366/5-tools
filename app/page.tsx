@@ -30,6 +30,7 @@ const navLinks = [
   { label: "Work Orders", href: "/work-order-engine" },
   { label: "Pricing Notebook", href: "/work-order-pricing" },
   { label: "Scheduler", href: "/project-scheduler" },
+  { label: "Calendar", href: "/operations-calendar" },
   { label: "Automation", href: "/automation-center" },
   { label: "Secretary", href: "/5tools-secretary" },
   { label: "Projects", href: "/project-tracker" },
@@ -76,6 +77,11 @@ const tools = [
     title: "Project Scheduler",
     href: "/project-scheduler",
     description: "Schedule visits, dispatch work, and coordinate upcoming field appointments.",
+  },
+  {
+    title: "Operations Calendar",
+    href: "/operations-calendar",
+    description: "Monthly and weekly scheduling board with drag-and-drop work blocks, follow-ups, reports, vendor appointments, and material runs.",
   },
   {
     title: "Project Tracker",
@@ -236,6 +242,12 @@ export default function FiveToolsDashboard() {
                 Tasks & Notes
               </Link>
               <Link
+                href="/operations-calendar"
+                className="rounded-2xl border border-[#d4a640] bg-[#3b2212] px-6 py-4 text-sm font-black uppercase tracking-wide text-[#fff5df] shadow-lg transition hover:bg-[#5a341a]"
+              >
+                Operations Calendar
+              </Link>
+              <Link
                 href="/automation-center"
                 className="rounded-2xl border border-[#d4a640] bg-[#241509] px-6 py-4 text-sm font-black uppercase tracking-wide text-[#fff5df] shadow-lg transition hover:bg-[#3b2212]"
               >
@@ -274,6 +286,13 @@ export default function FiveToolsDashboard() {
                 ? "Reading local Tasks & Notes data from this browser."
                 : "Loading local task count..."}
             </p>
+
+            <Link
+              href="/operations-calendar"
+              className="mt-5 block rounded-2xl border border-[#d4a640] bg-[#8a5a18] px-5 py-4 text-center text-sm font-black uppercase tracking-wide text-white shadow-lg transition hover:bg-[#b98525]"
+            >
+              Open Operations Calendar →
+            </Link>
           </aside>
         </div>
       </section>
