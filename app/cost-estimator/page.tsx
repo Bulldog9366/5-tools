@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { ALL_PRESETS, MATERIAL_PRESETS, SERVICE_PRESETS, type LaborMode, type Preset } from "@/lib/estimator/rate-card";
 
-type LaborMode = "flat" | "hourly";
 type ViewMode = "internal" | "owner";
 type TaxMode = "include" | "exclude";
 
@@ -32,317 +32,10 @@ type JobInfo = {
   preparedBy: string;
 };
 
-type Preset = {
-  item: string;
-  category: string;
-  description: string;
-  qty: number;
-  laborMode: LaborMode;
-  laborFlat: number;
-  laborHours: number;
-  laborRate: number;
-  materials: number;
-  taxable: boolean;
-};
 
 const STORAGE_KEY = "five-tools-cost-estimator-v2";
 const TABLE_NAME = "cost_estimates";
 
-const MATERIAL_PRESETS: Preset[] = [
-  {
-    item: "10yr Battery Smoke Detector",
-    category: "Electrical",
-    description: "Install 10-year battery-operated photoelectric smoke detector.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 27.5,
-    taxable: true,
-  },
-  {
-    item: "CO Detector",
-    category: "Electrical",
-    description: "Install carbon monoxide detector.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 28,
-    taxable: true,
-  },
-  {
-    item: "Kitchen Sink Faucet",
-    category: "Plumbing",
-    description: "Supply kitchen sink faucet for replacement installation.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 165,
-    taxable: true,
-  },
-  {
-    item: "Bathroom Sink Faucet",
-    category: "Plumbing",
-    description: "Supply bathroom sink faucet for replacement installation.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 95,
-    taxable: true,
-  },
-  {
-    item: "Electrical Outlet",
-    category: "Electrical",
-    description: "Standard duplex electrical outlet material.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 2.5,
-    taxable: true,
-  },
-  {
-    item: "GFCI Outlet",
-    category: "Electrical",
-    description: "GFCI outlet material for wet-area or protected circuit location.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 18,
-    taxable: true,
-  },
-  {
-    item: "Wax-Free Toilet Gasket",
-    category: "Plumbing",
-    description: "Wax-free toilet gasket material for toilet reset or repair.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 12,
-    taxable: true,
-  },
-  {
-    item: "Light Bulb (LED)",
-    category: "Electrical",
-    description: "LED replacement light bulb.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 4,
-    taxable: true,
-  },
-  {
-    item: "Entry Door Lockset (Handle + Deadbolt)",
-    category: "Hardware",
-    description: "Rental-grade entry door handle and deadbolt lockset.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 0,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 85,
-    taxable: true,
-  },
-  {
-    item: "Trip / Service Fee",
-    category: "General",
-    description: "Trip/service fee for site visit, fuel, vehicle expense, or material pickup.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 65,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-];
-
-const SERVICE_PRESETS: Preset[] = [
-  {
-    item: "Drywall Repair (Small)",
-    category: "Drywall",
-    description: "Patch small drywall holes, dings, cracks, or minor damage.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 125,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Drywall Repair (Water Damage)",
-    category: "Drywall",
-    description: "Cut out damaged drywall section, replace, patch, and prepare for finish.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 350,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Plumbing Repair - Minor",
-    category: "Plumbing",
-    description: "Minor plumbing repair, leak correction, adjustment, or drain service.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 145,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Toilet Rebuild",
-    category: "Plumbing",
-    description: "Replace standard toilet internal components such as fill valve, flapper, or supply components.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 185,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Toilet Installation",
-    category: "Plumbing",
-    description: "Remove existing toilet, install replacement toilet, reset, test, and clean work area.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 225,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Fixture Install - Plumbing",
-    category: "Plumbing",
-    description: "Install owner-approved plumbing fixture and test for proper operation.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 225,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Electrical Fixture Install",
-    category: "Electrical",
-    description: "Install electrical fixture such as light fixture, ceiling fan, or similar approved fixture.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 185,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Switch / Dimmer Install",
-    category: "Electrical",
-    description: "Replace standard switch or dimmer and test operation.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 125,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Interior Painting",
-    category: "Painting",
-    description: "Interior painting labor for standard room or defined area.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 450,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Touch-Up Paint",
-    category: "Painting",
-    description: "Touch-up paint for minor corrections, scuffs, patches, or turnover work.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 150,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Door Repair / Adjustment",
-    category: "Carpentry",
-    description: "Repair or adjust sticking door, latch alignment, hinges, or basic door hardware.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 125,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Door Installation",
-    category: "Carpentry",
-    description: "Install standard interior door or similar approved door component.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 275,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "General Carpentry Repair",
-    category: "Carpentry",
-    description: "General carpentry or wood repair including fence, gate, trim, or small structural repair work.",
-    qty: 1,
-    laborMode: "hourly",
-    laborFlat: 0,
-    laborHours: 1,
-    laborRate: 95,
-    materials: 0,
-    taxable: true,
-  },
-  {
-    item: "Door Lock Replacement (Handle + Deadbolt)",
-    category: "Carpentry",
-    description: "Remove and replace entry handle and deadbolt, align hardware, and verify operation.",
-    qty: 1,
-    laborMode: "flat",
-    laborFlat: 125,
-    laborHours: 0,
-    laborRate: 0,
-    materials: 0,
-    taxable: true,
-  },
-];
-
-const ALL_PRESETS = [...SERVICE_PRESETS, ...MATERIAL_PRESETS];
 
 const emptyJob: JobInfo = {
   street: "",
@@ -386,14 +79,10 @@ type CurrencyInputProps = {
 };
 
 function CurrencyInput({ value, onChange, placeholder = "0.00" }: CurrencyInputProps) {
-  const [draft, setDraft] = useState(moneyInput(value));
-  const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    if (!isFocused) {
-      setDraft(moneyInput(value));
-    }
-  }, [value, isFocused]);
+  // While editing, the field shows its own draft text; once blurred it
+  // falls back to the formatted prop value — no effect needed to sync them.
+  const [editingDraft, setEditingDraft] = useState<string | null>(null);
+  const displayValue = editingDraft ?? moneyInput(value);
 
   return (
     <div className="currency-wrap">
@@ -401,24 +90,23 @@ function CurrencyInput({ value, onChange, placeholder = "0.00" }: CurrencyInputP
       <input
         type="text"
         inputMode="decimal"
-        value={draft}
+        value={displayValue}
         placeholder={placeholder}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^0-9.]/g, "");
           const firstDot = raw.indexOf(".");
           const cleanDraft = firstDot === -1 ? raw : raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
-          setDraft(cleanDraft);
+          setEditingDraft(cleanDraft);
           onChange(parseMoney(cleanDraft));
         }}
         onFocus={(e) => {
-          setIsFocused(true);
+          setEditingDraft(moneyInput(value));
           e.currentTarget.select();
         }}
         onBlur={() => {
-          setIsFocused(false);
-          const formatted = moneyInput(parseMoney(draft));
-          setDraft(formatted);
+          const formatted = moneyInput(parseMoney(editingDraft ?? moneyInput(value)));
           onChange(parseMoney(formatted));
+          setEditingDraft(null);
         }}
         className="currency-input"
       />
@@ -483,6 +171,12 @@ export default function CostEstimator() {
   );
   const [viewMode, setViewMode] = useState<ViewMode>("internal");
   const [status, setStatus] = useState("");
+
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiSources, setAiSources] = useState<{ title: string; url: string }[]>([]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -674,8 +368,8 @@ export default function CostEstimator() {
       return;
     }
 
-    const payload = data.payload as any;
-    setJob(payload.job || {
+    const payload = data.payload as Record<string, unknown>;
+    setJob((payload.job as JobInfo) || {
       street: data.property_street || "",
       city: data.property_city || "",
       state: "WA",
@@ -683,11 +377,12 @@ export default function CostEstimator() {
       client: data.client_name || "",
       preparedBy: data.prepared_by || "",
     });
-    setLines(Array.isArray(payload.lines) && payload.lines.length ? payload.lines : [newBlankLine()]);
-    setTaxRate(numberValue(payload.taxRate ?? 10.5));
+    const payloadLines = payload.lines as EstimateLine[] | undefined;
+    setLines(Array.isArray(payloadLines) && payloadLines.length ? payloadLines : [newBlankLine()]);
+    setTaxRate(numberValue(Number(payload.taxRate ?? 10.5)));
     setTaxMode(payload.taxMode === "exclude" ? "exclude" : "include");
-    setManualContingency(numberValue(payload.manualContingency ?? 0));
-    setEstimateNotes(payload.estimateNotes || "");
+    setManualContingency(numberValue(Number(payload.manualContingency ?? 0)));
+    setEstimateNotes((payload.estimateNotes as string) || "");
     setStatus("Loaded latest cloud estimate.");
   }
 
@@ -699,6 +394,55 @@ export default function CostEstimator() {
     setManualContingency(0);
     setEstimateNotes("Estimate is provided for owner review and approval. Final cost may vary if additional hidden conditions are discovered.");
     setStatus("Estimate cleared.");
+  }
+
+  async function estimateWithClaude() {
+    const description = aiDescription.trim();
+    if (!description) {
+      setAiError("Describe the job first.");
+      return;
+    }
+    setAiBusy(true);
+    setAiError("");
+    setAiQuestion("");
+    setAiSources([]);
+    try {
+      const response = await fetch("/api/estimate-prices", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ description, property: job.street }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Couldn't price that job. Try again.");
+
+      const draftLines = Array.isArray(data?.lines) ? data.lines : [];
+      if (draftLines.length > 0) {
+        setLines((prev) => [
+          ...prev,
+          ...draftLines.map((l: Partial<EstimateLine>) => ({
+            id: makeId(),
+            category: l.category || "General",
+            item: l.item || "Custom Line Item",
+            description: l.description || "",
+            qty: l.qty ?? 1,
+            laborMode: (l.laborMode as LaborMode) || "flat",
+            laborFlat: l.laborFlat ?? 0,
+            laborHours: l.laborHours ?? 0,
+            laborRate: l.laborRate ?? 0,
+            materials: l.materials ?? 0,
+            taxable: l.taxable !== false,
+            internalNotes: "",
+          })),
+        ]);
+        setStatus(`Claude added ${draftLines.length} line item(s) below. Review and edit before saving or printing.`);
+      }
+      if (data?.question) setAiQuestion(data.question);
+      if (Array.isArray(data?.sources)) setAiSources(data.sources);
+    } catch (error: unknown) {
+      setAiError(error instanceof Error ? error.message : "Couldn't price that job. Try again.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function printEstimate() {
@@ -785,6 +529,47 @@ export default function CostEstimator() {
           </header>
 
           {status && <div className="no-print mb-4 rounded-xl border border-[#d8d2c4] bg-white px-4 py-3 text-sm font-semibold text-[#3b3324]">{status}</div>}
+
+          <div className="no-print mb-6 rounded-2xl border border-[#d8d2c4] bg-white p-4 shadow-sm">
+            <h2 className="font-bold">Estimate With Claude</h2>
+            <p className="mt-1 text-sm text-[#555]">
+              Describe the job. Claude prices anything that matches our rate card from the rate card itself, and searches the web for current pricing on
+              anything that doesn&apos;t. You still review and edit every line it adds.
+            </p>
+            <textarea
+              value={aiDescription}
+              onChange={(e) => setAiDescription(e.target.value)}
+              placeholder="e.g. Replace a failed 40-gallon electric water heater, standard closet install..."
+              disabled={aiBusy}
+              className="input mt-3 min-h-[80px]"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => void estimateWithClaude()}
+                disabled={aiBusy}
+                className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#222] disabled:opacity-60"
+              >
+                {aiBusy ? "Pricing…" : "Estimate With Claude"}
+              </button>
+              <p className="text-xs text-[#6b6255]">No customer account numbers or private details — just the job.</p>
+            </div>
+            {aiError ? <p className="mt-3 text-sm font-semibold text-red-600">{aiError}</p> : null}
+            {aiQuestion ? <p className="mt-3 text-sm text-[#3b3324]">Claude needs more detail: {aiQuestion}</p> : null}
+            {aiSources.length > 0 ? (
+              <div className="mt-3 text-xs text-[#6b6255]">
+                <p className="font-bold uppercase tracking-wide text-[#3b3324]">Prices sourced from:</p>
+                <ul className="mt-1 space-y-1">
+                  {aiSources.map((source) => (
+                    <li key={source.url}>
+                      <a href={source.url} target="_blank" rel="noreferrer" className="underline hover:text-[#c9a227]">
+                        {source.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
 
           <section className="grid gap-4 md:grid-cols-12">
             <label className="md:col-span-6">
