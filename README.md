@@ -1,3 +1,30 @@
+# 5 Tools — Repair & Maintenance Workspace
+
+## Access (read this before changing anything)
+
+The app ships with a sign-in gate that is **off until you turn it on**:
+
+1. In Supabase → Authentication → Users, create one login per person (Janet,
+   office, field leads) with email + password.
+2. In Vercel → the 5 Tools project → Settings → Environment Variables, add
+   `NEXT_PUBLIC_REQUIRE_LOGIN = true`, then redeploy.
+
+With the variable unset, every page behaves exactly as it does today. With it
+set, a page asks for that login before it renders, and a "Sign out" button
+appears bottom-right.
+
+**The gate is not the whole lock.** The database key is still public in the
+browser, so anyone who has the link could talk to the database directly. That
+closes only when row-level security is on for every table the app uses
+(`project_tracker`, `calendar_items`, `project_scheduler`, `service_tickets`,
+`time_clock_employees`, `operations_time_entries`, `time_entries`,
+`photo_review_tasks`, `operations_assistant_items`, `work_orders`,
+`cost_estimates`, `admin_job_cost_invoices`, `work_order_pricing_notebook`,
+`inspection_properties`, `inspection_schedule_v2`) plus the `work-order-photos`
+and `inspection-photos` buckets — and each table needs policies for the
+`authenticated` role, or the pages go blank. Turn that on one table at a time,
+while someone can watch the app.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

@@ -813,9 +813,12 @@ function ScheduleRail({ selectedDate, scheduledItems, onEdit, onResize }: { sele
 
     const grid = event.currentTarget.closest("[data-schedule-grid='true']") as HTMLDivElement | null;
     if (!grid) return;
+    // Kept as its own constant: TypeScript can't carry the null check above
+    // into the pointer handlers below, and the last deploy failed on exactly that.
+    const gridElement: HTMLDivElement = grid;
 
     function getMinutesFromPointer(pointerEvent: MouseEvent) {
-      const rect = grid.getBoundingClientRect();
+      const rect = gridElement.getBoundingClientRect();
       const y = clamp(pointerEvent.clientY - rect.top, 0, DAY_TOTAL_HEIGHT);
       return DAY_START_MINUTES + (y / HOUR_HEIGHT) * 60;
     }
